@@ -1,0 +1,164 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default Deny All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'avinaariesta9@gmail.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Helper: Periksa apakah user adalah pemilik toko atau staf/admin kasir yang sah
+    function isStoreStaff(storeId) {
+      return isSignedIn() && (
+        storeId == request.auth.uid ||
+        isAdmin() ||
+        (
+          get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid
+        ) ||
+        (
+          get(/databases/$(database)/documents/stores/$(storeId)).data.memberUids != null &&
+          request.auth.uid in get(/databases/$(database)/documents/stores/$(storeId)).data.memberUids
+        ) ||
+        (
+          get(/databases/$(database)/documents/stores/$(storeId)).data.memberEmails != null &&
+          request.auth.token.email != null &&
+          request.auth.token.email.lower() in get(/databases/$(database)/documents/stores/$(storeId)).data.memberEmails
+        )
+      );
+    }
+
+    // Koleksi Profil Pengguna
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if (isOwner(userId) || isAdmin())
+        && request.resource.data.email is string;
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if false;
+    }
+
+    // Koleksi Profil & Ringkasan Toko (Mendukung Pemilik & Multi Admin)
+    match /stores/{storeId} {
+      allow get: if isSignedIn() && (
+        resource == null ||
+        resource.data.ownerId == request.auth.uid ||
+        storeId == request.auth.uid ||
+        isAdmin() ||
+        (resource.data.memberUids != null && request.auth.uid in resource.data.memberUids) ||
+        (resource.data.memberEmails != null && request.auth.token.email != null && request.auth.token.email.lower() in resource.data.memberEmails)
+      );
+      allow list: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        storeId == request.auth.uid ||
+        isAdmin() ||
+        (resource.data.memberUids != null && request.auth.uid in resource.data.memberUids) ||
+        (resource.data.memberEmails != null && request.auth.token.email != null && request.auth.token.email.lower() in resource.data.memberEmails)
+      );
+      allow create: if isSignedIn() 
+        && isValidId(storeId)
+        && (
+          (request.resource.data.ownerId == request.auth.uid && storeId == request.auth.uid)
+          || isAdmin()
+        )
+        && request.resource.data.storeName is string
+        && request.resource.data.storeName.size() <= 100;
+      allow update: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        storeId == request.auth.uid ||
+        isAdmin() ||
+        (resource.data.memberUids != null && request.auth.uid in resource.data.memberUids) ||
+        (resource.data.memberEmails != null && request.auth.token.email != null && request.auth.token.email.lower() in resource.data.memberEmails)
+      );
+      allow delete: if false;
+
+      // Subkoleksi Multi Admin Toko (Staf & Peran)
+      match /members/{memberId} {
+        allow get, list: if isStoreStaff(storeId);
+        // Hanya Pemilik toko atau Developer yang boleh mengundang, mengubah status, atau menghapus admin
+        allow create, update, delete: if isSignedIn() && (
+          storeId == request.auth.uid ||
+          get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid ||
+          isAdmin()
+        );
+      }
+
+      // Koleksi Produk & Persediaan Toko
+      match /products/{productId} {
+        allow get, list: if isStoreStaff(storeId);
+        allow create, update: if isStoreStaff(storeId)
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 120
+          && request.resource.data.costPrice is number
+          && request.resource.data.sellingPrice is number
+          && request.resource.data.stock is number;
+        allow delete: if isStoreStaff(storeId);
+      }
+
+      // Koleksi Transaksi & Riwayat Kasir
+      match /transactions/{transactionId} {
+        allow get, list: if isStoreStaff(storeId);
+        allow create: if isStoreStaff(storeId)
+          && request.resource.data.invoiceNumber is string
+          && request.resource.data.total is number;
+        allow update, delete: if false; // Transaksi tidak dapat diubah/dihapus agar audit konsisten
+      }
+    }
+
+    // Koleksi Rekam Aktivasi Toko khusus Admin / Penjual Resmi
+    match /activations/{activationId} {
+      allow get, list, create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // Koleksi Lisensi Toko & Pengikatan Perangkat (Sistem Lisensi Kasir WarungKu)
+    match /licenses/{storeId} {
+      allow get: if isSignedIn() && (storeId == request.auth.uid || isStoreStaff(storeId) || isAdmin());
+      allow list: if isAdmin();
+      // Pembeli hanya boleh membuat permintaan berstatus 'pending', tidak dapat langsung 'active'
+      allow create: if isSignedIn()
+        && isValidId(storeId)
+        && (
+          (storeId == request.auth.uid && request.resource.data.status == 'pending' && request.resource.data.storeId == storeId)
+          || isAdmin()
+        )
+        && request.resource.data.requestCode is string
+        && request.resource.data.deviceId is string;
+      // Perubahan status ke 'active', 'rejected', 'inactive', atau reset device hanya berhak dilakukan Developer Admin
+      allow update: if isSignedIn()
+        && (
+          isAdmin()
+          || (
+            storeId == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'pending'
+            && request.resource.data.storeId == storeId
+          )
+        );
+      allow delete: if false;
+    }
+
+    // Audit Trail Log Tindakan Developer
+    match /license_logs/{logId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
+

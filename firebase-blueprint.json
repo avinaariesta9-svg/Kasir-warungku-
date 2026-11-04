@@ -1,0 +1,398 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Profil pengguna yang terdaftar",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "UID pengguna dari Firebase Auth"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email pengguna"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Nama tampilan pengguna"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Waktu pendaftaran ISO string"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Waktu pembaruan ISO string"
+        }
+      },
+      "required": ["id", "email"]
+    },
+    "Store": {
+      "title": "Store",
+      "description": "Profil toko dan ringkasan metrik milik pengguna",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID toko (sama dengan UID pemilik)"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "UID pemilik toko"
+        },
+        "storeName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Nama warung / toko"
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 255,
+          "description": "Alamat toko"
+        },
+        "whatsapp": {
+          "type": "string",
+          "maxLength": 20,
+          "description": "Nomor WhatsApp toko"
+        },
+        "totalSales": {
+          "type": "number",
+          "description": "Total penjualan dalam Rupiah (nilai awal 0)"
+        },
+        "totalTransactions": {
+          "type": "number",
+          "description": "Total transaksi kasir (nilai awal 0)"
+        },
+        "totalProducts": {
+          "type": "number",
+          "description": "Total variasi produk (nilai awal 0)"
+        },
+        "totalStock": {
+          "type": "number",
+          "description": "Total kuantitas stok produk (nilai awal 0)"
+        },
+        "plan": {
+          "type": "string",
+          "enum": ["lifetime"],
+          "description": "Paket lisensi Selamanya (Sekali Bayar / Seumur Hidup, tanpa masa kedaluwarsa)"
+        },
+        "planExpiresAt": {
+          "type": "string",
+          "description": "Masa berlaku paket ISO string"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Waktu pembuatan toko ISO string"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Waktu pembaruan toko ISO string"
+        }
+      },
+      "required": ["id", "ownerId", "storeName", "whatsapp"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Barang dagangan dan persediaan stok di warung",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID unik produk"
+        },
+        "storeId": {
+          "type": "string",
+          "description": "ID toko pemilik produk (sama dengan UID pemilik)"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Nama produk"
+        },
+        "barcode": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Kode barcode / EAN / SKU produk"
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Kategori produk (misal Sembako, Minuman, dsb)"
+        },
+        "costPrice": {
+          "type": "number",
+          "description": "Harga beli (modal) dalam Rupiah"
+        },
+        "sellingPrice": {
+          "type": "number",
+          "description": "Harga jual kepada pelanggan dalam Rupiah"
+        },
+        "stock": {
+          "type": "number",
+          "description": "Jumlah kuantitas stok barang saat ini"
+        },
+        "minStock": {
+          "type": "number",
+          "description": "Batas minimum stok sebelum peringatan menipis"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Waktu pembuatan produk ISO string"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Waktu pembaruan produk ISO string"
+        }
+      },
+      "required": ["id", "storeId", "name", "costPrice", "sellingPrice", "stock"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Nota rekaman transaksi penjualan kasir warung",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID unik transaksi nota kasir"
+        },
+        "storeId": {
+          "type": "string",
+          "description": "ID toko pemilik transaksi (UID)"
+        },
+        "invoiceNumber": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Nomor nota struk kasir"
+        },
+        "items": {
+          "type": "array",
+          "description": "Daftar belanjaan produk"
+        },
+        "subtotal": {
+          "type": "number",
+          "description": "Subtotal sebelum diskon"
+        },
+        "total": {
+          "type": "number",
+          "description": "Total tagihan belanja dalam Rupiah"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Metode pembayaran (TUNAI atau QRIS)"
+        },
+        "cashAmount": {
+          "type": "number",
+          "description": "Jumlah uang tunai yang diterima dari pelanggan"
+        },
+        "changeAmount": {
+          "type": "number",
+          "description": "Jumlah kembalian uang tunai"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Waktu transaksi dibuat ISO string"
+        }
+      },
+      "required": ["id", "storeId", "invoiceNumber", "items", "total", "paymentMethod", "createdAt"]
+    },
+    "Activation": {
+      "title": "Activation",
+      "description": "Catatan aktivasi toko baru oleh penjual/admin di lokasi",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID toko (UID pemilik)"
+        },
+        "storeCode": {
+          "type": "string",
+          "description": "Kode lisensi/ID unik toko"
+        },
+        "storeName": {
+          "type": "string",
+          "description": "Nama warung / toko"
+        },
+        "ownerName": {
+          "type": "string",
+          "description": "Nama pemilik toko"
+        },
+        "ownerEmail": {
+          "type": "string",
+          "description": "Email login pemilik"
+        },
+        "whatsapp": {
+          "type": "string",
+          "description": "Nomor WhatsApp pemilik"
+        },
+        "address": {
+          "type": "string",
+          "description": "Alamat toko fisik"
+        },
+        "activatedAt": {
+          "type": "string",
+          "description": "Waktu aktivasi ISO string"
+        },
+        "activatedBy": {
+          "type": "string",
+          "description": "Email admin penjual yang melakukan aktivasi"
+        }
+      },
+      "required": ["id", "storeCode", "storeName", "ownerName", "ownerEmail", "whatsapp", "activatedAt"]
+    },
+    "License": {
+      "title": "License",
+      "description": "Data lisensi toko dan perangkat kasir warung",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID lisensi (sama dengan storeId / UID pemilik)"
+        },
+        "storeId": {
+          "type": "string",
+          "description": "ID toko pemilik lisensi"
+        },
+        "storeName": {
+          "type": "string",
+          "description": "Nama toko"
+        },
+        "ownerName": {
+          "type": "string",
+          "description": "Nama pemilik toko"
+        },
+        "ownerEmail": {
+          "type": "string",
+          "description": "Email pemilik toko"
+        },
+        "whatsapp": {
+          "type": "string",
+          "description": "Nomor WhatsApp pemilik"
+        },
+        "requestCode": {
+          "type": "string",
+          "description": "Kode permintaan aktivasi lisensi"
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "ID perangkat unik yang terikat"
+        },
+        "deviceInfo": {
+          "type": "string",
+          "description": "Informasi peramban/perangkat"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "active", "rejected", "inactive"],
+          "description": "Status lisensi toko"
+        },
+        "plan": {
+          "type": "string",
+          "enum": ["lifetime"],
+          "description": "Paket lisensi Selamanya (Sekali Bayar / Seumur Hidup, tanpa masa kedaluwarsa)"
+        },
+        "planExpiresAt": {
+          "type": "string",
+          "description": "Masa kedaluwarsa paket lisensi"
+        },
+        "requestedAt": {
+          "type": "string",
+          "description": "Waktu permintaan diajukan"
+        },
+        "activatedAt": {
+          "type": "string",
+          "description": "Waktu disetujui developer"
+        },
+        "activatedBy": {
+          "type": "string",
+          "description": "Email developer yang menyetujui"
+        },
+        "rejectedAt": {
+          "type": "string",
+          "description": "Waktu ditolak developer"
+        },
+        "rejectReason": {
+          "type": "string",
+          "description": "Alasan penolakan"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Catatan tambahan"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Waktu pembaruan"
+        }
+      },
+      "required": ["id", "storeId", "storeName", "requestCode", "deviceId", "status", "requestedAt"]
+    },
+    "LicenseActionLog": {
+      "title": "LicenseActionLog",
+      "description": "Catatan audit trail aksi developer terhadap lisensi",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID unik log"
+        },
+        "storeId": {
+          "type": "string",
+          "description": "ID toko target"
+        },
+        "storeName": {
+          "type": "string",
+          "description": "Nama toko target"
+        },
+        "action": {
+          "type": "string",
+          "description": "Jenis aksi (ACTIVATE, REJECT, DEACTIVATE, RESET_DEVICE)"
+        },
+        "performedBy": {
+          "type": "string",
+          "description": "Email developer pelaksana"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Waktu pelaksanaan ISO string"
+        },
+        "details": {
+          "type": "string",
+          "description": "Detail alasan atau keterangan"
+        }
+      },
+      "required": ["id", "storeId", "storeName", "action", "performedBy", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Data profil pengguna yang hanya dapat diakses oleh pengguna itu sendiri."
+    },
+    "/stores/{storeId}": {
+      "schema": "Store",
+      "description": "Profil toko dan metrik kasir warung, hanya dapat diakses dan dikelola oleh pemilik toko."
+    },
+    "/stores/{storeId}/products/{productId}": {
+      "schema": "Product",
+      "description": "Koleksi produk dan stok barang warung, hanya dapat diakses oleh pemilik toko."
+    },
+    "/stores/{storeId}/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Koleksi transaksi nota kasir dan riwayat belanja warung, hanya dapat diakses oleh pemilik toko."
+    },
+    "/activations/{activationId}": {
+      "schema": "Activation",
+      "description": "Data aktivasi toko di lokasi khusus admin penjual."
+    },
+    "/licenses/{storeId}": {
+      "schema": "License",
+      "description": "Data status lisensi dan pengikatan perangkat toko."
+    },
+    "/license_logs/{logId}": {
+      "schema": "LicenseActionLog",
+      "description": "Log riwayat tindakan developer dalam mengelola lisensi."
+    }
+  }
+}

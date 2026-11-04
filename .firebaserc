@@ -1,0 +1,17 @@
+{
+  "projects": {
+    "default": "annular-spark-ppthm"
+  },
+  "targets": {
+    "annular-spark-ppthm": {
+      "hosting": {
+        "kasir": [
+          "warungku-kasir"
+        ],
+        "admin": [
+          "warungku-admin"
+        ]
+      }
+    }
+  }
+}
