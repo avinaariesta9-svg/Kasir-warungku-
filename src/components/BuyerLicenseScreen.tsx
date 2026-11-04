@@ -13,9 +13,15 @@ import {
   LogOut,
   HelpCircle,
   AlertTriangle,
+  Code,
+  Lock,
+  Eye,
+  EyeOff,
+  X,
 } from 'lucide-react';
 import { StoreLicense } from '../types';
 import { LicenseService } from '../services/licenseService';
+import { useAuth } from '../context/AuthContext';
 
 interface BuyerLicenseScreenProps {
   license: StoreLicense | null;
@@ -34,9 +40,68 @@ export const BuyerLicenseScreen: React.FC<BuyerLicenseScreenProps> = ({
   onLogout,
   developerPhone,
 }) => {
+  const { loginWithEmail } = useAuth();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedDevice, setCopiedDevice] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
+
+  // State Login Developer Modal
+  const [devAuthModalOpen, setDevAuthModalOpen] = useState(false);
+  const [devIdInput, setDevIdInput] = useState('');
+  const [devSecretPassword, setDevSecretPassword] = useState('');
+  const [showDevSecretPassword, setShowDevSecretPassword] = useState(false);
+  const [devAuthLoading, setDevAuthLoading] = useState(false);
+  const [devAuthError, setDevAuthError] = useState<string | null>(null);
+
+  const handleDeveloperAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDevAuthError(null);
+
+    const cleanDevId = devIdInput.trim();
+    if (!cleanDevId || !devSecretPassword) {
+      setDevAuthError('Harap isi Developer ID dan Password Rahasia.');
+      return;
+    }
+
+    let targetEmail = '';
+    const upperId = cleanDevId.toUpperCase();
+    if (
+      upperId === 'DEV-WARUNGKU' ||
+      upperId === 'ADMIN-WARUNGKU' ||
+      upperId === 'DEVELOPER' ||
+      upperId === 'ADMIN' ||
+      cleanDevId.toLowerCase() === 'avinaariesta9@gmail.com'
+    ) {
+      targetEmail = 'avinaariesta9@gmail.com';
+    } else if (cleanDevId.includes('@')) {
+      targetEmail = cleanDevId.toLowerCase();
+    } else {
+      setDevAuthError('Developer ID atau Password tidak cocok.');
+      return;
+    }
+
+    if (targetEmail !== 'avinaariesta9@gmail.com') {
+      setDevAuthError('Akses ditolak. Akun tidak memiliki hak akses Developer.');
+      return;
+    }
+
+    setDevAuthLoading(true);
+    try {
+      await loginWithEmail(targetEmail, devSecretPassword);
+      setDevAuthModalOpen(false);
+    } catch (err: unknown) {
+      const errCode = (err as { code?: string })?.code || '';
+      if (errCode === 'auth/wrong-password' || errCode === 'auth/invalid-credential') {
+        setDevAuthError('Password Rahasia Developer salah.');
+      } else if (errCode === 'auth/user-not-found') {
+        setDevAuthError('Akun Developer tidak ditemukan.');
+      } else {
+        setDevAuthError((err as Error).message || 'Gagal login developer.');
+      }
+    } finally {
+      setDevAuthLoading(false);
+    }
+  };
 
   const handleCopy = (text: string, type: 'code' | 'device') => {
     navigator.clipboard.writeText(text);
@@ -275,7 +340,23 @@ export const BuyerLicenseScreen: React.FC<BuyerLicenseScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col justify-between p-4 max-w-md mx-auto">
+    <div className="relative min-h-screen bg-slate-100 flex flex-col justify-between p-4 max-w-md mx-auto">
+      {/* Icon Kecil Kode </> Developer Permanen di Pojok Kanan Atas */}
+      <div className="fixed top-3 right-3 sm:top-4 sm:right-4 z-40">
+        <button
+          onClick={() => {
+            setDevAuthError(null);
+            setDevSecretPassword('');
+            setDevAuthModalOpen(true);
+          }}
+          className="p-2 rounded-xl bg-slate-950 hover:bg-slate-900 text-amber-300 hover:text-amber-200 border border-amber-400/80 shadow-lg active:scale-95 transition cursor-pointer flex items-center justify-center"
+          title="Akses Portal Developer (</>)"
+          aria-label="Akses Developer"
+        >
+          <Code className="w-4 h-4 stroke-[2.5]" />
+        </button>
+      </div>
+
       {/* Top Branding */}
       <div>
         <div className="pt-6 pb-4 text-center">
@@ -318,6 +399,97 @@ export const BuyerLicenseScreen: React.FC<BuyerLicenseScreenProps> = ({
           Kasir WarungKu • Perlindungan Lisensi Cloud Firebase
         </p>
       </div>
+
+      {/* Modal Kredensial & Autentikasi Developer */}
+      {devAuthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative w-full max-w-sm bg-slate-900 border border-slate-700/80 rounded-3xl p-6 text-white shadow-2xl">
+            <button
+              onClick={() => {
+                setDevAuthModalOpen(false);
+                setDevAuthError(null);
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition"
+              aria-label="Tutup"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-300 flex items-center justify-center shrink-0">
+                <Code className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-white">Login Developer</h3>
+                <p className="text-xs text-slate-400">Verifikasi kredensial otoritas developer</p>
+              </div>
+            </div>
+
+            {devAuthError && (
+              <div className="mb-4 p-3 rounded-xl bg-red-950/80 border border-red-500/40 text-red-200 text-xs flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <span>{devAuthError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleDeveloperAuthSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Developer ID</label>
+                <input
+                  type="text"
+                  value={devIdInput}
+                  onChange={(e) => setDevIdInput(e.target.value)}
+                  placeholder="ID Developer"
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-400 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Password Rahasia</label>
+                <div className="relative">
+                  <input
+                    type={showDevSecretPassword ? 'text' : 'password'}
+                    value={devSecretPassword}
+                    onChange={(e) => setDevSecretPassword(e.target.value)}
+                    placeholder="Password Rahasia"
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-400 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDevSecretPassword(!showDevSecretPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {showDevSecretPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDevAuthModalOpen(false);
+                    setDevAuthError(null);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={devAuthLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>{devAuthLoading ? 'Memverifikasi...' : 'Buka Dashboard'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

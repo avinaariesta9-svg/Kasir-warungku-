@@ -9,8 +9,9 @@ import {
   EyeOff,
   AlertCircle,
   ShieldCheck,
-  Key,
   Shield,
+  Code,
+  Key,
   X,
   Sparkles,
 } from 'lucide-react';
@@ -42,7 +43,7 @@ export const AuthScreen: React.FC = () => {
     }
     return false;
   });
-  const [devId, setDevId] = useState('DEV-WARUNGKU');
+  const [devId, setDevId] = useState('');
   const [devSecretPassword, setDevSecretPassword] = useState('');
   const [showDevPassword, setShowDevPassword] = useState(false);
   const [devLoading, setDevLoading] = useState(false);
@@ -113,7 +114,12 @@ export const AuthScreen: React.FC = () => {
     } else if (cleanDevId.includes('@')) {
       targetEmail = cleanDevId.toLowerCase();
     } else {
-      setDevErrorMessage('Developer ID tidak dikenal. Gunakan "DEV-WARUNGKU" atau email developer resmi.');
+      setDevErrorMessage('Developer ID atau Password tidak cocok.');
+      return;
+    }
+
+    if (targetEmail !== 'avinaariesta9@gmail.com') {
+      setDevErrorMessage('Akses ditolak. Akun tidak memiliki hak akses Developer.');
       return;
     }
 
@@ -155,6 +161,22 @@ export const AuthScreen: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col justify-center px-4 py-8 font-sans relative">
+      {/* Icon Kecil Kode </> Developer Permanen di Pojok Kanan Atas */}
+      <div className="fixed top-3 right-3 sm:top-4 sm:right-4 z-40">
+        <button
+          type="button"
+          onClick={() => {
+            setDevErrorMessage(null);
+            setShowDevModal(true);
+          }}
+          className="p-2 rounded-xl bg-slate-950 hover:bg-slate-900 text-amber-300 hover:text-amber-200 border border-amber-400/80 shadow-lg active:scale-95 transition cursor-pointer flex items-center justify-center"
+          title="Akses Portal Developer (</>)"
+          aria-label="Akses Developer"
+        >
+          <Code className="w-4 h-4 stroke-[2.5]" />
+        </button>
+      </div>
+
       <div className="w-full max-w-sm mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200/80">
         {/* Header Branding */}
         <div className="bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 p-6 text-white text-center relative">
@@ -406,12 +428,12 @@ export const AuthScreen: React.FC = () => {
                     required
                     value={devId}
                     onChange={(e) => setDevId(e.target.value)}
-                    placeholder="DEV-WARUNGKU atau email"
+                    placeholder="ID Developer"
                     className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs font-mono font-bold text-amber-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Gunakan <span className="text-slate-300 font-mono">DEV-WARUNGKU</span> atau email resmi pengembang.
+                  Hanya pemilik aplikasi berwenang yang dapat mengakses.
                 </p>
               </div>
 

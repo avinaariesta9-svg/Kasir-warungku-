@@ -426,6 +426,68 @@ export class LicenseService {
   }
 
   /**
+   * MENGATUR STATUS AKSES PENGGUNA (Khusus Developer Admin)
+   * Mengatur status akses aplikasi (Aktif, Menunggu Persetujuan, Nonaktif, Ditolak)
+   * Menyimpan perubahan langsung ke cloud Firestore secara riil
+   */
+  static async changeUserAccessStatus(
+    storeId: string,
+    storeName: string,
+    developerEmail: string,
+    newStatus: LicenseStatus,
+    notes?: string
+  ): Promise<void> {
+    const licenseRef = doc(db, 'licenses', storeId);
+    const storeRef = doc(db, 'stores', storeId);
+    const now = new Date().toISOString();
+
+    try {
+      const isNowActive = newStatus === 'active';
+      const updateData: Partial<StoreLicense> = {
+        status: newStatus,
+        plan: 'lifetime',
+        planExpiresAt: '',
+        updatedAt: now,
+      };
+
+      if (isNowActive) {
+        updateData.activatedAt = now;
+        updateData.activatedBy = developerEmail;
+      } else if (newStatus === 'rejected') {
+        updateData.rejectedAt = now;
+        updateData.rejectReason = notes || 'Ditolak oleh developer';
+      }
+      if (notes) {
+        updateData.notes = notes;
+      }
+
+      await updateDoc(licenseRef, updateData);
+
+      try {
+        await updateDoc(storeRef, {
+          isActive: isNowActive,
+          plan: 'lifetime',
+          planExpiresAt: '',
+          updatedAt: now,
+        });
+      } catch (e) {
+        console.warn('Gagal sinkronisasi profil toko:', e);
+      }
+
+      await this.logAction(
+        storeId,
+        storeName,
+        isNowActive ? 'ACTIVATE' : newStatus === 'rejected' ? 'REJECT' : 'DEACTIVATE',
+        developerEmail,
+        `Status akses diatur menjadi: ${newStatus.toUpperCase()}${notes ? ' (' + notes + ')' : ''}`
+      );
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `licenses/${storeId}`);
+      throw error;
+    }
+  }
+
+  /**
    * RESET PERANGKAT (Khusus Developer Admin)
    * Mengizinkan pembeli menghubungkan perangkat HP baru tanpa menghapus lisensi/data toko
    */

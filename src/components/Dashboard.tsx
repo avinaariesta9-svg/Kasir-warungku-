@@ -12,6 +12,12 @@ import {
   CheckCircle2,
   Smartphone,
   ShieldCheck,
+  Shield,
+  Code,
+  Lock,
+  Eye,
+  EyeOff,
+  X,
   AlertTriangle,
   ArrowRight,
   LayoutDashboard,
@@ -52,7 +58,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
-  const { user, store, logout, isAdmin, currentRole, isOwner, isCashier } = useAuth();
+  const { user, store, logout, isAdmin, currentRole, isOwner, isCashier, loginWithEmail } = useAuth();
   const { totalProductsCount, totalStockSum, lowStockProducts } = useProducts();
   const { cartItemsCount, transactions } = useTransactions();
   const { isOnline, isSyncing, pendingCount, syncNow } = useSyncStatus();
@@ -68,6 +74,75 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
   const [activationModalOpen, setActivationModalOpen] = useState(false);
   const [membersModalOpen, setMembersModalOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // State Modal Autentikasi Developer (Kredensial Developer ID & Password Rahasia)
+  const [devAuthModalOpen, setDevAuthModalOpen] = useState(false);
+  const [devIdInput, setDevIdInput] = useState('');
+  const [devSecretPassword, setDevSecretPassword] = useState('');
+  const [showDevSecretPassword, setShowDevSecretPassword] = useState(false);
+  const [devAuthLoading, setDevAuthLoading] = useState(false);
+  const [devAuthError, setDevAuthError] = useState<string | null>(null);
+
+  const handleDeveloperClick = () => {
+    if (isAdmin) {
+      onOpenDeveloper?.();
+    } else {
+      setDevAuthError(null);
+      setDevSecretPassword('');
+      setDevAuthModalOpen(true);
+    }
+  };
+
+  const handleDeveloperAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDevAuthError(null);
+
+    const cleanDevId = devIdInput.trim();
+    if (!cleanDevId || !devSecretPassword) {
+      setDevAuthError('Harap isi Developer ID dan Password Rahasia.');
+      return;
+    }
+
+    let targetEmail = '';
+    const upperId = cleanDevId.toUpperCase();
+    if (
+      upperId === 'DEV-WARUNGKU' ||
+      upperId === 'ADMIN-WARUNGKU' ||
+      upperId === 'DEVELOPER' ||
+      upperId === 'ADMIN' ||
+      cleanDevId.toLowerCase() === 'avinaariesta9@gmail.com'
+    ) {
+      targetEmail = 'avinaariesta9@gmail.com';
+    } else if (cleanDevId.includes('@')) {
+      targetEmail = cleanDevId.toLowerCase();
+    } else {
+      setDevAuthError('Developer ID atau Password tidak cocok.');
+      return;
+    }
+
+    if (targetEmail !== 'avinaariesta9@gmail.com') {
+      setDevAuthError('Akses ditolak. Akun tidak memiliki hak akses Developer.');
+      return;
+    }
+
+    setDevAuthLoading(true);
+    try {
+      await loginWithEmail(targetEmail, devSecretPassword);
+      setDevAuthModalOpen(false);
+      onOpenDeveloper?.();
+    } catch (err: unknown) {
+      const errCode = (err as { code?: string })?.code || '';
+      if (errCode === 'auth/wrong-password' || errCode === 'auth/invalid-credential') {
+        setDevAuthError('Password Rahasia Developer salah.');
+      } else if (errCode === 'auth/user-not-found') {
+        setDevAuthError('Akun Developer tidak ditemukan.');
+      } else {
+        setDevAuthError((err as Error).message || 'Gagal verifikasi kredensial developer.');
+      }
+    } finally {
+      setDevAuthLoading(false);
+    }
+  };
 
   const formatRupiah = (amount: number = 0) => {
     return new Intl.NumberFormat('id-ID', {
@@ -101,23 +176,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
     <div className="min-h-screen bg-slate-100/80 text-slate-800 flex flex-col font-sans pb-16 md:pb-6">
       {/* Responsive Header */}
       <header className="sticky top-0 z-30 bg-emerald-600 text-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 border border-white/20">
-              <Store className="w-5 h-5 text-white" />
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0 border border-white/20">
+              <Store className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-extrabold text-base tracking-tight leading-tight truncate">
+              <h1 className="font-extrabold text-sm sm:text-base tracking-tight leading-tight truncate">
                 {store?.storeName || 'KASIR WARUNGKU'}
               </h1>
-              <p className="text-[11px] text-emerald-100 truncate flex items-center gap-1">
-                <span>{store?.ownerName || user?.displayName || user?.email || 'Pemilik Warung'}</span>
-                <span className="text-emerald-300">•</span>
-                <span className="text-[10px] bg-emerald-700/80 px-1.5 py-0.5 rounded font-semibold text-emerald-100">
-                  {store?.storeCode || 'Toko Aktif'}
+              <p className="text-[10px] sm:text-[11px] text-emerald-100 truncate flex items-center gap-1">
+                <span className="truncate max-w-[80px] xs:max-w-[120px] sm:max-w-none">
+                  {store?.ownerName || user?.displayName || user?.email || 'Pemilik'}
+                </span>
+                <span className="text-emerald-300 hidden xs:inline">•</span>
+                <span className="text-[10px] bg-emerald-700/80 px-1.5 py-0.2 rounded font-semibold text-emerald-100 hidden xs:inline">
+                  {store?.storeCode || 'Toko'}
                 </span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-extrabold flex items-center gap-0.5 ${
+                  className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.2 rounded font-extrabold flex items-center gap-0.5 shrink-0 ${
                     isCashier ? 'bg-teal-900 text-teal-100' : 'bg-amber-400 text-slate-950'
                   }`}
                 >
@@ -127,11 +204,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             {/* Status Online, Offline & Menunggu Sinkronisasi */}
             {!isOnline ? (
               <span
-                className="px-2 py-1 rounded-xl bg-amber-400 text-slate-950 font-black text-[11px] flex items-center gap-1 shadow-xs"
+                className="px-2 py-1 rounded-xl bg-amber-400 text-slate-950 font-black text-[10px] sm:text-[11px] flex items-center gap-1 shadow-xs"
                 title="Aplikasi berjalan offline. Transaksi dan perubahan tersimpan di IndexedDB perangkat."
               >
                 <WifiOff className="w-3.5 h-3.5" />
@@ -146,15 +223,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
               <button
                 onClick={syncNow}
                 disabled={isSyncing}
-                className="px-2.5 py-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] flex items-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer animate-pulse"
+                className="px-2 sm:px-2.5 py-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] sm:text-[11px] flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer animate-pulse"
                 title="Ada transaksi offline menunggu sinkronisasi ke Firebase. Tekan untuk sinkron sekarang."
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Sinkron...' : `Sinkron (${pendingCount})`}</span>
+                <span>{isSyncing ? '...' : `(${pendingCount})`}</span>
               </button>
             ) : (
               <span
-                className="px-2 py-1 rounded-xl bg-emerald-700/80 text-emerald-100 font-bold text-[11px] hidden sm:flex items-center gap-1.5 shadow-xs"
+                className="px-2 py-1 rounded-xl bg-emerald-700/80 text-emerald-100 font-bold text-[11px] hidden lg:flex items-center gap-1.5 shadow-xs"
                 title="Terhubung ke cloud Firebase"
               >
                 <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
@@ -162,54 +239,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
               </span>
             )}
 
-            {isAdmin && onOpenDeveloper && (
-              <button
-                onClick={onOpenDeveloper}
-                className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-emerald-500/40 active:scale-95 transition flex items-center gap-1 shadow-xs font-black cursor-pointer"
-                title="Buka Dashboard Developer & Lisensi (/developer)"
-                aria-label="Dashboard Developer"
-              >
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span className="text-[11px] font-black tracking-tight text-white">Dev</span>
-              </button>
-            )}
-
             {/* Menu Multi-Admin / Tim Toko */}
             <button
               onClick={() => setMembersModalOpen(true)}
-              className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 transition flex items-center gap-1 shadow-xs font-bold text-white cursor-pointer"
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 transition flex items-center gap-1 shadow-xs font-bold text-white cursor-pointer"
               title="Kelola Tim Admin & Kasir (Multi-Admin)"
               aria-label="Multi-Admin"
             >
               <Users className="w-4 h-4 text-emerald-100" />
-              <span className="text-[11px] font-bold tracking-tight hidden sm:inline">Tim</span>
+              <span className="text-[11px] font-bold tracking-tight hidden md:inline">Tim</span>
             </button>
 
             {(isOwner || isAdmin) && (
               <button
                 onClick={() => setActivationModalOpen(true)}
-                className="px-2.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 active:scale-95 transition flex items-center gap-1 shadow-xs font-black cursor-pointer"
+                className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 active:scale-95 transition flex items-center gap-1 shadow-xs font-black cursor-pointer"
                 title="Menu Aktivasi Toko (Khusus Admin / Penjual)"
                 aria-label="Aktivasi Toko"
               >
                 <Key className="w-4 h-4 text-slate-950" />
-                <span className="text-[11px] font-black tracking-tight">Aktivasi</span>
+                <span className="text-[11px] font-black tracking-tight hidden md:inline">Aktivasi</span>
               </button>
             )}
 
+            {/* Tombol Bantuan (Tablet & Desktop) */}
             <button
               onClick={() => setHelpModalOpen(true)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition text-white"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition text-white hidden sm:flex"
               title="Panduan & Bantuan"
               aria-label="Panduan & Bantuan"
             >
               <HelpCircle className="w-4 h-4" />
             </button>
 
+            {/* Tombol Backup (Desktop) */}
             {(isOwner || isAdmin) && (
               <button
                 onClick={() => setBackupModalOpen(true)}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition text-white"
+                className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition text-white hidden md:flex"
                 title="Backup & Impor Data"
                 aria-label="Backup & Impor Data"
               >
@@ -217,19 +284,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
               </button>
             )}
 
+            {/* Tombol Printer (Tablet & Desktop) */}
             <button
               onClick={() => setPrinterModalOpen(true)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition text-white"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition text-white hidden sm:flex"
               title="Pengaturan Printer"
               aria-label="Pengaturan Printer"
             >
               <Printer className="w-4 h-4" />
             </button>
 
+            {/* Tombol Edit Profil Toko */}
             {(isOwner || isAdmin) && (
               <button
                 onClick={() => setProfileModalOpen(true)}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition text-white"
+                className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition text-white"
                 title="Edit Profil Toko"
                 aria-label="Edit Profil Toko"
               >
@@ -237,10 +306,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
               </button>
             )}
 
+            {/* TOMBOL DEVELOPER (</>) PERMANEN & KONTRAS TINGGI DI POJOK KANAN ATAS */}
+            <button
+              type="button"
+              onClick={handleDeveloperClick}
+              className="p-1.5 sm:p-2 rounded-xl bg-slate-950 hover:bg-slate-900 active:scale-95 text-amber-300 hover:text-amber-200 border border-amber-400/80 shadow-md transition cursor-pointer flex items-center justify-center shrink-0 z-20"
+              title="Akses Portal Developer (</>)"
+              aria-label="Akses Developer"
+            >
+              <Code className="w-4 h-4 stroke-[2.5]" />
+            </button>
+
+            {/* Tombol Logout */}
             <button
               onClick={handleLogout}
               disabled={loggingOut}
-              className="p-2 rounded-xl bg-white/10 hover:bg-red-500/80 active:scale-95 transition text-emerald-100 hover:text-white"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-red-500/80 active:scale-95 transition text-emerald-100 hover:text-white shrink-0"
               title="Keluar"
               aria-label="Keluar"
             >
@@ -460,32 +541,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
                     </div>
                   </div>
                   <ArrowRight className="w-4 h-4 text-amber-700 shrink-0" />
-                </button>
-              )}
-
-              {/* Quick Action: Dashboard Developer khusus Developer Admin */}
-              {isAdmin && onOpenDeveloper && (
-                <button
-                  onClick={onOpenDeveloper}
-                  className="w-full py-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700 hover:border-emerald-500 rounded-2xl flex items-center justify-between px-3.5 transition active:scale-98 cursor-pointer text-left shadow-md text-white"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/40">
-                      <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-xs font-black text-white">Dashboard Developer & Lisensi</p>
-                        <span className="text-[10px] bg-emerald-500/30 text-emerald-300 font-bold px-1.5 py-0.2 rounded border border-emerald-400/40 font-mono">
-                          /developer
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-300">
-                        Kelola aktivasi lisensi toko, verifikasi manual & reset perangkat
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-emerald-400 shrink-0" />
                 </button>
               )}
             </div>
@@ -841,6 +896,97 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
         isOpen={membersModalOpen}
         onClose={() => setMembersModalOpen(false)}
       />
+
+      {/* Modal Kredensial & Autentikasi Developer */}
+      {devAuthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative w-full max-w-sm bg-slate-900 border border-slate-700/80 rounded-3xl p-6 text-white shadow-2xl">
+            <button
+              onClick={() => {
+                setDevAuthModalOpen(false);
+                setDevAuthError(null);
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition"
+              aria-label="Tutup"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-300 flex items-center justify-center shrink-0">
+                <Code className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-white">Login Developer</h3>
+                <p className="text-xs text-slate-400">Verifikasi kredensial otoritas developer</p>
+              </div>
+            </div>
+
+            {devAuthError && (
+              <div className="mb-4 p-3 rounded-xl bg-red-950/80 border border-red-500/40 text-red-200 text-xs flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <span>{devAuthError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleDeveloperAuthSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Developer ID</label>
+                <input
+                  type="text"
+                  value={devIdInput}
+                  onChange={(e) => setDevIdInput(e.target.value)}
+                  placeholder="ID Developer"
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-400 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Password Rahasia</label>
+                <div className="relative">
+                  <input
+                    type={showDevSecretPassword ? 'text' : 'password'}
+                    value={devSecretPassword}
+                    onChange={(e) => setDevSecretPassword(e.target.value)}
+                    placeholder="Password Rahasia"
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-400 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDevSecretPassword(!showDevSecretPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {showDevSecretPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDevAuthModalOpen(false);
+                    setDevAuthError(null);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={devAuthLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>{devAuthLoading ? 'Memverifikasi...' : 'Buka Dashboard'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

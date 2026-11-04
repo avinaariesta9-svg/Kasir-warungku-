@@ -241,7 +241,7 @@ const AppContent: React.FC = () => {
   // 4. Lisensi Pembeli Aktif & Terverifikasi
   return (
     <div className="w-full min-h-screen bg-slate-100">
-      <Dashboard />
+      <Dashboard onOpenDeveloper={() => handleNavigate('developer')} />
     </div>
   );
 };

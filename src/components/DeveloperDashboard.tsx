@@ -18,6 +18,7 @@ import {
   Phone,
   User,
   Key,
+  Code,
   Copy,
   Check,
   AlertCircle,
@@ -281,15 +282,128 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ onBackTo
     }
   };
 
-  // Statistics Calculation
-  const totalPengguna = usersList.length || stores.length;
+  // 6. UBAH STATUS AKSES PENGGUNA LANGSUNG (Khusus Developer Admin)
+  const handleChangeStatus = async (
+    targetStoreId: string,
+    targetStoreName: string,
+    newStatus: LicenseStatus
+  ) => {
+    if (!user?.email) return;
+    setActionLoadingId(targetStoreId);
+    try {
+      await LicenseService.changeUserAccessStatus(
+        targetStoreId,
+        targetStoreName,
+        user.email,
+        newStatus,
+        `Diubah oleh developer`
+      );
+      showToast(`Status "${targetStoreName}" berhasil diubah menjadi: ${newStatus.toUpperCase()}`);
+      await loadData();
+    } catch (err) {
+      alert('Gagal mengubah status: ' + String(err));
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Gabungkan seluruh pengguna unik dari usersList, stores, dan licenses
+  const unifiedUsers = useMemo(() => {
+    const map = new Map<string, {
+      userId: string;
+      name: string;
+      storeName: string;
+      storeCode?: string;
+      email: string;
+      whatsapp: string;
+      createdAt: string;
+      status: LicenseStatus;
+      license?: StoreLicense;
+      store?: StoreProfile;
+    }>();
+
+    // 1. Dari stores
+    stores.forEach((s) => {
+      const lic = licenses.find((l) => l.storeId === s.id);
+      map.set(s.id, {
+        userId: s.id,
+        name: s.ownerName || 'Pemilik Warung',
+        storeName: s.storeName,
+        storeCode: s.storeCode,
+        email: s.ownerEmail || '',
+        whatsapp: s.whatsapp || lic?.whatsapp || '',
+        createdAt: s.createdAt || lic?.requestedAt || '',
+        status: lic?.status || (s.isActive ? 'active' : 'inactive'),
+        license: lic,
+        store: s,
+      });
+    });
+
+    // 2. Dari licenses (jika ada lisensi yang belum ada di stores)
+    licenses.forEach((l) => {
+      if (!map.has(l.storeId)) {
+        map.set(l.storeId, {
+          userId: l.storeId,
+          name: l.ownerName,
+          storeName: l.storeName,
+          storeCode: undefined,
+          email: l.ownerEmail,
+          whatsapp: l.whatsapp,
+          createdAt: l.requestedAt,
+          status: l.status,
+          license: l,
+          store: undefined,
+        });
+      }
+    });
+
+    // 3. Dari usersList (jika ada user yang belum punya store/license)
+    usersList.forEach((u) => {
+      if (!map.has(u.id)) {
+        map.set(u.id, {
+          userId: u.id,
+          name: u.displayName || 'Pengguna Baru',
+          storeName: 'Menunggu Pengaturan Toko',
+          storeCode: undefined,
+          email: u.email,
+          whatsapp: '-',
+          createdAt: u.createdAt,
+          status: 'pending',
+          license: undefined,
+          store: undefined,
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [stores, licenses, usersList]);
+
+  // Statistics Calculation (Akurat & Tersinkron)
+  const totalPengguna = unifiedUsers.length;
   const totalToko = stores.length;
-  const totalActive = licenses.filter((l) => l.status === 'active').length;
-  const totalInactive = licenses.filter((l) => l.status === 'inactive').length;
-  const totalPending = licenses.filter((l) => l.status === 'pending').length;
-  const totalRejected = licenses.filter((l) => l.status === 'rejected').length;
+  const totalActive = unifiedUsers.filter((u) => u.status === 'active').length;
+  const totalInactive = unifiedUsers.filter((u) => u.status === 'inactive').length;
+  const totalPending = unifiedUsers.filter((u) => u.status === 'pending').length;
+  const totalRejected = unifiedUsers.filter((u) => u.status === 'rejected').length;
 
   // Filtered lists
+  const filteredUsers = useMemo(() => {
+    return unifiedUsers.filter((u) => {
+      const matchesStatus = filterStatus === 'all' || u.status === filterStatus;
+      const term = searchTerm.toLowerCase();
+      const matchesSearch =
+        !term ||
+        u.name.toLowerCase().includes(term) ||
+        u.storeName.toLowerCase().includes(term) ||
+        u.email.toLowerCase().includes(term) ||
+        u.whatsapp.includes(term) ||
+        (u.storeCode && u.storeCode.toLowerCase().includes(term)) ||
+        (u.createdAt && u.createdAt.toLowerCase().includes(term));
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [unifiedUsers, filterStatus, searchTerm]);
+
   const filteredLicenses = useMemo(() => {
     return licenses.filter((l) => {
       const matchesStatus = filterStatus === 'all' || l.status === filterStatus;
@@ -924,17 +1038,17 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ onBackTo
           </div>
         )}
 
-        {/* TAB 2: MANAJEMEN PENGGUNA & TOKO */}
+        {/* TAB 2: DAFTAR SELURUH PENGGUNA APLIKASI */}
         {activeTab === 'users' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
               <div>
                 <h2 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-emerald-600" />
-                  <span>Daftar Pengguna & Toko ({filteredStores.length})</span>
+                  <span>Daftar Seluruh Pengguna Aplikasi ({filteredUsers.length})</span>
                 </h2>
                 <p className="text-[11px] text-slate-500">
-                  Data akun pengguna, nama toko, email, tanggal pendaftaran, dan status lisensi Selamanya
+                  Data akun pengguna, nama pemilik, nama toko, email, status akun, dan akses paket Selamanya
                 </p>
               </div>
             </div>
@@ -942,9 +1056,9 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ onBackTo
             {loading ? (
               <div className="p-8 text-center bg-white rounded-2xl border border-slate-200">
                 <RefreshCw className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
-                <p className="text-xs text-slate-500">Memuat data pengguna...</p>
+                <p className="text-xs text-slate-500">Memuat data pengguna dari Firebase...</p>
               </div>
-            ) : filteredStores.length === 0 ? (
+            ) : filteredUsers.length === 0 ? (
               <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500 space-y-1">
                 <Users className="w-8 h-8 text-slate-300 mx-auto" />
                 <p className="text-xs font-bold text-slate-700">Tidak ada data pengguna</p>
@@ -959,84 +1073,102 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ onBackTo
                         <th className="py-3 px-3.5">Nama & Toko</th>
                         <th className="py-3 px-3">Email Pengguna</th>
                         <th className="py-3 px-3">Tanggal Daftar</th>
-                        <th className="py-3 px-3">Status</th>
-                        <th className="py-3 px-3">Paket Akses</th>
+                        <th className="py-3 px-3">Status Akun</th>
+                        <th className="py-3 px-3">Masa Aktif</th>
                         <th className="py-3 px-3 text-right">Aksi Developer</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {filteredStores.map((store) => {
-                        const linkedLicense = licenses.find((l) => l.storeId === store.id);
-                        const isWorking = actionLoadingId === store.id;
-                        const cleanPhone = store.whatsapp?.replace(/[^0-9]/g, '') || '';
+                      {filteredUsers.map((item) => {
+                        const linkedLicense = item.license || licenses.find((l) => l.storeId === item.userId);
+                        const isWorking = actionLoadingId === item.userId;
+                        const cleanPhone = item.whatsapp?.replace(/[^0-9]/g, '') || '';
                         const waUrl =
                           cleanPhone.length >= 9
                             ? `https://wa.me/${cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone}`
                             : null;
 
                         return (
-                          <tr key={store.id} className="hover:bg-slate-50/70 transition">
+                          <tr key={item.userId} className="hover:bg-slate-50/70 transition">
                             <td className="py-3 px-3.5">
-                              <p className="font-black text-slate-900">{store.ownerName || 'Pemilik Warung'}</p>
+                              <p className="font-black text-slate-900">{item.name}</p>
                               <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                                 <Store className="w-3 h-3 text-emerald-600 shrink-0" />
-                                <span className="font-semibold text-slate-700">{store.storeName}</span>
-                                <span className="font-mono text-[10px] text-slate-400">({store.storeCode || 'WRG'})</span>
+                                <span className="font-semibold text-slate-700">{item.storeName}</span>
+                                {item.storeCode && (
+                                  <span className="font-mono text-[10px] text-slate-400">({item.storeCode})</span>
+                                )}
                               </p>
-                              {store.whatsapp && (
+                              {item.whatsapp && item.whatsapp !== '-' && (
                                 <p className="text-[10px] font-mono text-emerald-700 mt-0.5">
-                                  WA: {store.whatsapp}
+                                  WA: {item.whatsapp}
                                 </p>
                               )}
                             </td>
                             <td className="py-3 px-3 font-mono text-slate-700 text-[11px]">
-                              {store.ownerEmail || '-'}
+                              {item.email || '-'}
                             </td>
                             <td className="py-3 px-3 text-slate-500 text-[11px] whitespace-nowrap">
-                              {formatDateTime(store.createdAt)}
+                              {formatDateTime(item.createdAt)}
                             </td>
                             <td className="py-3 px-3 whitespace-nowrap">
-                              {getStatusBadge(linkedLicense?.status)}
+                              {getStatusBadge(item.status)}
                             </td>
                             <td className="py-3 px-3 whitespace-nowrap">
                               {getLifetimeBadge()}
                             </td>
                             <td className="py-3 px-3 text-right whitespace-nowrap">
                               <div className="inline-flex items-center gap-1.5 justify-end">
-                                {linkedLicense?.status === 'pending' && (
+                                {item.status === 'pending' && linkedLicense && (
                                   <>
                                     <button
                                       onClick={() => openApproveModal(linkedLicense)}
                                       disabled={isWorking}
-                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer"
+                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer transition active:scale-95 shadow-2xs"
+                                      title="Terima & Aktifkan Paket Selamanya"
                                     >
                                       Terima
                                     </button>
                                     <button
                                       onClick={() => openRejectModal(linkedLicense)}
                                       disabled={isWorking}
-                                      className="px-2.5 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-[11px] font-bold cursor-pointer"
+                                      className="px-2.5 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-[11px] font-bold cursor-pointer transition active:scale-95"
+                                      title="Tolak Pendaftaran"
                                     >
                                       Tolak
                                     </button>
                                   </>
                                 )}
 
-                                {linkedLicense?.status === 'active' && (
+                                {item.status === 'active' && (
                                   <button
-                                    onClick={() => handleDeactivate(linkedLicense)}
+                                    onClick={() => {
+                                      if (linkedLicense) {
+                                        handleDeactivate(linkedLicense);
+                                      } else {
+                                        handleChangeStatus(item.userId, item.storeName, 'inactive');
+                                      }
+                                    }}
                                     disabled={isWorking}
-                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold cursor-pointer"
+                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold cursor-pointer transition active:scale-95"
+                                    title="Nonaktifkan Akses Pengguna"
                                   >
                                     Nonaktifkan
                                   </button>
                                 )}
 
-                                {(linkedLicense?.status === 'inactive' || linkedLicense?.status === 'rejected') && (
+                                {(item.status === 'inactive' || item.status === 'rejected') && (
                                   <button
-                                    onClick={() => handleReactivate(linkedLicense)}
+                                    onClick={() => {
+                                      if (linkedLicense) {
+                                        handleReactivate(linkedLicense);
+                                      } else {
+                                        handleChangeStatus(item.userId, item.storeName, 'active');
+                                      }
+                                    }}
                                     disabled={isWorking}
-                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer"
+                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer transition active:scale-95 shadow-2xs"
+                                    title="Aktifkan Kembali Pengguna (Paket Selamanya)"
                                   >
                                     Aktifkan
                                   </button>
