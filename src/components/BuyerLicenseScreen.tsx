@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert,
   Clock,
@@ -18,10 +18,13 @@ import {
   Eye,
   EyeOff,
   X,
+  MessageSquare,
 } from 'lucide-react';
 import { StoreLicense } from '../types';
 import { LicenseService } from '../services/licenseService';
+import { ChatService } from '../services/chatService';
 import { useAuth } from '../context/AuthContext';
+import { ChatDeveloperModal } from './ChatDeveloperModal';
 
 interface BuyerLicenseScreenProps {
   license: StoreLicense | null;
@@ -40,10 +43,27 @@ export const BuyerLicenseScreen: React.FC<BuyerLicenseScreenProps> = ({
   onLogout,
   developerPhone,
 }) => {
-  const { loginWithEmail } = useAuth();
+  const { loginWithEmail, user, store } = useAuth();
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedDevice, setCopiedDevice] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
+
+  // State Chat Developer (Monokrom Real-Time)
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [customerUnreadCount, setCustomerUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const sId = license?.storeId || store?.id || user?.uid;
+    if (!sId) return;
+
+    const unsub = ChatService.listenToConversation(sId, (conv) => {
+      if (conv) {
+        setCustomerUnreadCount(conv.unreadByCustomer || 0);
+      }
+    });
+
+    return () => unsub();
+  }, [license?.storeId, store?.id, user?.uid]);
 
   // State Login Developer Modal
   const [devAuthModalOpen, setDevAuthModalOpen] = useState(false);
@@ -322,6 +342,21 @@ export const BuyerLicenseScreen: React.FC<BuyerLicenseScreenProps> = ({
           <span>Kirim Bukti Bayar ke WhatsApp Developer</span>
         </a>
 
+        {/* Tombol Chat ke Developer Langsung di Aplikasi (Monokrom Hitam-Putih) */}
+        <button
+          type="button"
+          onClick={() => setChatModalOpen(true)}
+          className="w-full py-3.5 bg-black hover:bg-neutral-900 text-white rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 border border-neutral-800 shadow-md active:scale-98 transition cursor-pointer"
+        >
+          <MessageSquare className="w-4 h-4 text-white" />
+          <span>Chat Bantuan Developer di Aplikasi</span>
+          {customerUnreadCount > 0 && (
+            <span className="w-4 h-4 rounded-full bg-white text-black text-[9px] font-black flex items-center justify-center">
+              {customerUnreadCount}
+            </span>
+          )}
+        </button>
+
         {/* Real-time sync note */}
         <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl text-[11px] text-emerald-900 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -490,6 +525,14 @@ export const BuyerLicenseScreen: React.FC<BuyerLicenseScreenProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal Chat ke Developer (Desain Monokrom Hitam-Putih Real-Time) */}
+      <ChatDeveloperModal
+        isOpen={chatModalOpen}
+        onClose={() => setChatModalOpen(false)}
+        store={store}
+        user={user}
+      />
     </div>
   );
 };

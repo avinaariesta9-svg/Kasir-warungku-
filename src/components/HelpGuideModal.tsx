@@ -14,14 +14,16 @@ import {
   ChevronRight,
   ExternalLink,
   Key,
+  MessageSquare,
 } from 'lucide-react';
 
 interface HelpGuideModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenChat?: () => void;
 }
 
-export const HelpGuideModal: React.FC<HelpGuideModalProps> = ({ isOpen, onClose }) => {
+export const HelpGuideModal: React.FC<HelpGuideModalProps> = ({ isOpen, onClose, onOpenChat }) => {
   const [activeTopic, setActiveTopic] = useState<string>('pwa');
 
   if (!isOpen) return null;
@@ -213,6 +215,30 @@ export const HelpGuideModal: React.FC<HelpGuideModalProps> = ({ isOpen, onClose 
 
         {/* Scrollable Content */}
         <div className="p-5 overflow-y-auto space-y-4 text-slate-800 flex-1">
+          {/* Banner Chat ke Developer (Desain Monokrom Hitam-Putih) */}
+          {onOpenChat && (
+            <div className="p-3.5 bg-black text-white rounded-2xl border border-neutral-800 flex items-center justify-between gap-3 shadow-md">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white text-black flex items-center justify-center font-black shrink-0">
+                  <MessageSquare className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-white">Butuh Bantuan Langsung?</p>
+                  <p className="text-[11px] text-neutral-400">Chat ke Developer secara real-time</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenChat();
+                }}
+                className="px-3.5 py-1.5 bg-white text-black hover:bg-neutral-200 text-xs font-black rounded-xl transition cursor-pointer active:scale-95 shadow-xs shrink-0"
+              >
+                Buka Chat
+              </button>
+            </div>
+          )}
+
           {/* Product Overview Banner */}
           <div className="bg-gradient-to-br from-emerald-50 to-teal-50/70 p-4 rounded-2xl border border-emerald-200 shadow-xs space-y-2">
             <div className="flex items-center justify-between">

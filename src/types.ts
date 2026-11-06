@@ -195,7 +195,6 @@ export interface StoreLicense {
   notes?: string;
   updatedAt: string;
 }
-
 export interface LicenseActionLog {
   id: string;
   storeId: string;
@@ -206,5 +205,29 @@ export interface LicenseActionLog {
   details?: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  storeId: string;
+  senderRole: 'customer' | 'developer';
+  senderId: string;
+  senderName: string;
+  senderEmail: string;
+  text: string;
+  createdAt: string;
+  read: boolean;
+}
 
-
+export interface ChatConversation {
+  id: string; // storeId
+  storeId: string;
+  storeName: string;
+  ownerName: string;
+  ownerEmail: string;
+  whatsapp?: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  lastSenderRole: 'customer' | 'developer';
+  unreadByCustomer: number;
+  unreadByDeveloper: number;
+  updatedAt: string;
+}

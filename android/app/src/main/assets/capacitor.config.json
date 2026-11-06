@@ -1,0 +1,8 @@
+{
+	"appId": "com.warungku.kasir",
+	"appName": "Kasir WarungKu",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	}
+}

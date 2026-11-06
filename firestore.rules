@@ -159,6 +159,37 @@ service cloud.firestore {
     match /license_logs/{logId} {
       allow read, write: if isAdmin();
     }
+
+    // Koleksi Chat Bantuan Pelanggan ke Developer (Monokrom Real-Time)
+    match /chats/{storeId} {
+      allow get: if isSignedIn() && (storeId == request.auth.uid || isStoreStaff(storeId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn()
+        && isValidId(storeId)
+        && (storeId == request.auth.uid || isStoreStaff(storeId) || isAdmin())
+        && request.resource.data.storeId == storeId;
+      allow update: if isSignedIn()
+        && (storeId == request.auth.uid || isStoreStaff(storeId) || isAdmin())
+        && request.resource.data.storeId == storeId;
+      allow delete: if isAdmin();
+
+      // Subkoleksi Pesan Chat Real-Time
+      match /messages/{messageId} {
+        allow get, list: if isSignedIn() && (storeId == request.auth.uid || isStoreStaff(storeId) || isAdmin());
+        allow create: if isSignedIn()
+          && (storeId == request.auth.uid || isStoreStaff(storeId) || isAdmin())
+          && request.resource.data.storeId == storeId
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && (
+            (request.resource.data.senderRole == 'customer' && request.resource.data.senderId == request.auth.uid) ||
+            (request.resource.data.senderRole == 'developer' && isAdmin())
+          );
+        allow update: if isSignedIn() && (storeId == request.auth.uid || isStoreStaff(storeId) || isAdmin());
+        allow delete: if isAdmin();
+      }
+    }
   }
 }
 

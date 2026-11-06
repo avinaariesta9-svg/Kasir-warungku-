@@ -363,6 +363,109 @@
         }
       },
       "required": ["id", "storeId", "storeName", "action", "performedBy", "timestamp"]
+    },
+    "ChatConversation": {
+      "title": "ChatConversation",
+      "description": "Percakapan bantuan langsung antara toko/pelanggan dan developer",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID percakapan (sama dengan storeId)"
+        },
+        "storeId": {
+          "type": "string",
+          "description": "ID toko pelanggan"
+        },
+        "storeName": {
+          "type": "string",
+          "description": "Nama warung / toko"
+        },
+        "ownerName": {
+          "type": "string",
+          "description": "Nama pemilik toko"
+        },
+        "ownerEmail": {
+          "type": "string",
+          "description": "Email login pemilik toko"
+        },
+        "whatsapp": {
+          "type": "string",
+          "description": "Nomor WhatsApp toko"
+        },
+        "lastMessage": {
+          "type": "string",
+          "description": "Pesan terakhir dalam percakapan"
+        },
+        "lastMessageAt": {
+          "type": "string",
+          "description": "Waktu pesan terakhir ISO string"
+        },
+        "lastSenderRole": {
+          "type": "string",
+          "enum": ["customer", "developer"],
+          "description": "Pengirim pesan terakhir"
+        },
+        "unreadByCustomer": {
+          "type": "number",
+          "description": "Jumlah pesan belum dibaca oleh pelanggan"
+        },
+        "unreadByDeveloper": {
+          "type": "number",
+          "description": "Jumlah pesan belum dibaca oleh developer"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Waktu pembaruan percakapan"
+        }
+      },
+      "required": ["id", "storeId", "storeName", "lastMessage", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Pesan individual dalam percakapan toko dan developer",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID unik pesan"
+        },
+        "storeId": {
+          "type": "string",
+          "description": "ID toko"
+        },
+        "senderRole": {
+          "type": "string",
+          "enum": ["customer", "developer"],
+          "description": "Peran pengirim pesan"
+        },
+        "senderId": {
+          "type": "string",
+          "description": "UID pengirim"
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Nama pengirim"
+        },
+        "senderEmail": {
+          "type": "string",
+          "description": "Email pengirim"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Isi teks pesan"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Waktu pengiriman pesan ISO string"
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Status sudah dibaca"
+        }
+      },
+      "required": ["storeId", "senderRole", "senderId", "text", "createdAt"]
     }
   },
   "firestore": {
@@ -393,6 +496,14 @@
     "/license_logs/{logId}": {
       "schema": "LicenseActionLog",
       "description": "Log riwayat tindakan developer dalam mengelola lisensi."
+    },
+    "/chats/{storeId}": {
+      "schema": "ChatConversation",
+      "description": "Data percakapan bantuan langsung antara toko dan developer."
+    },
+    "/chats/{storeId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Subkoleksi pesan obrolan real-time toko dan developer."
     }
   }
 }

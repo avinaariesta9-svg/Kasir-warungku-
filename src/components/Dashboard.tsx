@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Store,
   DollarSign,
@@ -36,6 +36,7 @@ import {
   WifiOff,
   CloudUpload,
   RefreshCw,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductContext';
@@ -52,6 +53,8 @@ import { BackupRestoreModal } from './BackupRestoreModal';
 import { HelpGuideModal } from './HelpGuideModal';
 import { StoreActivationModal } from './StoreActivationModal';
 import { StoreMembersModal } from './StoreMembersModal';
+import { ChatDeveloperModal } from './ChatDeveloperModal';
+import { ChatService } from '../services/chatService';
 
 interface DashboardProps {
   onOpenDeveloper?: () => void;
@@ -74,6 +77,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
   const [activationModalOpen, setActivationModalOpen] = useState(false);
   const [membersModalOpen, setMembersModalOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+
+  // State & Listener Chat ke Developer (Real-Time & Notifikasi)
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [customerUnreadCount, setCustomerUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const activeStoreId = store?.id || user?.uid;
+    if (!activeStoreId) return;
+
+    const unsub = ChatService.listenToConversation(activeStoreId, (conv) => {
+      if (conv) {
+        setCustomerUnreadCount(conv.unreadByCustomer || 0);
+      }
+    });
+
+    return () => unsub();
+  }, [store?.id, user?.uid]);
 
   // State Modal Autentikasi Developer (Kredensial Developer ID & Password Rahasia)
   const [devAuthModalOpen, setDevAuthModalOpen] = useState(false);
@@ -153,16 +174,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
     }).format(amount);
   };
 
-  const handleLogout = async () => {
-    if (window.confirm('Apakah Anda yakin ingin keluar dari Kasir Warungku?')) {
-      setLoggingOut(true);
+  const handleLogoutClick = () => {
+    setLogoutModalOpen(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      setLogoutModalOpen(false);
+    } catch (e) {
+      console.error('Gagal logout:', e);
+      // Fallback
       try {
         await logout();
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoggingOut(false);
-      }
+      } catch {}
+      setLogoutModalOpen(false);
+    } finally {
+      setLoggingOut(false);
     }
   };
 
@@ -272,6 +301,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
               <HelpCircle className="w-4 h-4" />
             </button>
 
+            {/* Tombol Chat ke Developer (Desain Monokrom Hitam-Putih dengan Notifikasi Real-Time) */}
+            <button
+              type="button"
+              onClick={() => setChatModalOpen(true)}
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-black hover:bg-neutral-900 active:scale-95 transition flex items-center gap-1 shadow-sm font-bold text-white border border-neutral-700 cursor-pointer relative shrink-0"
+              title="Bantuan & Chat ke Developer (Real-Time)"
+              aria-label="Chat Developer"
+            >
+              <MessageSquare className="w-4 h-4 text-white" />
+              <span className="text-[11px] font-bold tracking-tight hidden md:inline">Chat Dev</span>
+              {customerUnreadCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-white text-black text-[9px] font-black absolute -top-1.5 -right-1.5 flex items-center justify-center animate-pulse border border-black shadow-xs">
+                  {customerUnreadCount}
+                </span>
+              )}
+            </button>
+
             {/* Tombol Backup (Desktop) */}
             {(isOwner || isAdmin) && (
               <button
@@ -319,10 +365,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
 
             {/* Tombol Logout */}
             <button
-              onClick={handleLogout}
+              type="button"
+              onClick={handleLogoutClick}
               disabled={loggingOut}
-              className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-red-500/80 active:scale-95 transition text-emerald-100 hover:text-white shrink-0"
-              title="Keluar"
+              className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-rose-600 active:scale-95 transition text-emerald-100 hover:text-white shrink-0 cursor-pointer z-20"
+              title="Keluar dari Aplikasi"
               aria-label="Keluar"
             >
               <LogOut className="w-4 h-4" />
@@ -883,6 +930,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
       <HelpGuideModal
         isOpen={helpModalOpen}
         onClose={() => setHelpModalOpen(false)}
+        onOpenChat={() => setChatModalOpen(true)}
+      />
+
+      {/* Modal Chat ke Developer (Desain Monokrom Hitam-Putih Real-Time) */}
+      <ChatDeveloperModal
+        isOpen={chatModalOpen}
+        onClose={() => setChatModalOpen(false)}
+        store={store}
+        user={user}
       />
 
       {/* Modal Aktivasi Toko khusus Admin/Penjual */}
@@ -896,6 +952,75 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
         isOpen={membersModalOpen}
         onClose={() => setMembersModalOpen(false)}
       />
+
+      {/* Modal Konfirmasi Keluar / Logout */}
+      {logoutModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="relative w-full max-w-sm bg-white rounded-3xl p-6 text-slate-900 shadow-2xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => !loggingOut && setLogoutModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+              aria-label="Tutup"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
+                <LogOut className="w-6 h-6 stroke-[2.5]" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900">Keluar Akun Kasir</h3>
+                <p className="text-xs text-slate-500">Konfirmasi pengakhiran sesi kasir</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed mb-4">
+              Apakah Anda yakin ingin keluar dari <strong>Kasir WarungKu</strong>? Sesi kasir pada perangkat ini akan diakhiri dan Anda akan diarahkan ke halaman login.
+            </p>
+
+            <div className="p-3 bg-emerald-50/90 rounded-2xl border border-emerald-200 text-[11px] text-emerald-900 space-y-1 mb-5">
+              <p className="font-bold flex items-center gap-1.5 text-emerald-800">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Seluruh Data Toko Tetap Aman</span>
+              </p>
+              <p className="text-[10px] text-emerald-700 leading-relaxed">
+                Produk, stok barang, riwayat transaksi nota, dan laporan keuangan tetap tersimpan aman di database cloud dan perangkat Anda.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setLogoutModalOpen(false)}
+                disabled={loggingOut}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold transition cursor-pointer disabled:opacity-50 text-center"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLogout}
+                disabled={loggingOut}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black transition flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/30 cursor-pointer disabled:opacity-50"
+              >
+                {loggingOut ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Keluar...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Ya, Keluar</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Kredensial & Autentikasi Developer */}
       {devAuthModalOpen && (

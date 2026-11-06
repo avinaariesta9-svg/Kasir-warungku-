@@ -30,6 +30,7 @@ import {
   Sparkles,
   ExternalLink,
   ChevronRight,
+  MessageSquare,
 } from 'lucide-react';
 import {
   StoreLicense,
@@ -39,8 +40,10 @@ import {
   UserProfile,
 } from '../types';
 import { LicenseService } from '../services/licenseService';
+import { ChatService } from '../services/chatService';
 import { useAuth } from '../context/AuthContext';
 import { StoreActivationModal } from './StoreActivationModal';
+import { DeveloperChatView } from './DeveloperChatView';
 
 interface DeveloperDashboardProps {
   onBackToPos: () => void;
@@ -56,9 +59,10 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ onBackTo
   const [logs, setLogs] = useState<LicenseActionLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
-  // Active view tab: 'licenses' | 'users' | 'stores' | 'logs'
-  const [activeTab, setActiveTab] = useState<'licenses' | 'users' | 'stores' | 'logs'>('licenses');
+  // Active view tab: 'licenses' | 'users' | 'stores' | 'logs' | 'chats'
+  const [activeTab, setActiveTab] = useState<'licenses' | 'users' | 'stores' | 'logs' | 'chats'>('licenses');
 
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,6 +117,16 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ onBackTo
     if (isAdmin) {
       loadData();
     }
+  }, [isAdmin]);
+
+  // Real-time unread chat messages listener for developer
+  useEffect(() => {
+    if (!isAdmin) return;
+    const unsub = ChatService.listenAllConversations((convs) => {
+      const totalUnread = convs.reduce((acc, c) => acc + (c.unreadByDeveloper || 0), 0);
+      setUnreadChatCount(totalUnread);
+    });
+    return () => unsub();
   }, [isAdmin]);
 
   const handleSavePhone = (e: React.FormEvent) => {
@@ -629,6 +643,23 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ onBackTo
           >
             <History className="w-4 h-4" />
             <span>Riwayat Aktivitas Developer ({logs.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('chats')}
+            className={`py-2.5 px-4 flex items-center gap-2 border-b-2 cursor-pointer transition whitespace-nowrap relative ${
+              activeTab === 'chats'
+                ? 'border-emerald-500 text-emerald-400 bg-white/5 font-bold'
+                : 'border-transparent text-slate-400 hover:text-white'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Chat Pelanggan</span>
+            {unreadChatCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 font-black text-[10px] animate-pulse">
+                {unreadChatCount} Baru
+              </span>
+            )}
           </button>
         </div>
       </header>
@@ -1366,6 +1397,9 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({ onBackTo
             )}
           </div>
         )}
+
+        {/* Tab Chat Pelanggan Real-Time */}
+        {activeTab === 'chats' && <DeveloperChatView />}
       </main>
 
       {/* MODAL PERSETUJUAN TERIMA (Paket Selamanya / Seumur Hidup) */}

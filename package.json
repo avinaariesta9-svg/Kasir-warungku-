@@ -12,9 +12,14 @@
     "deploy": "npm run build && firebase deploy --only hosting",
     "deploy:kasir": "npm run build && firebase deploy --only hosting:kasir",
     "deploy:admin": "npm run build && firebase deploy --only hosting:admin",
-    "deploy:rules": "firebase deploy --only firestore:rules"
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "cap:sync": "npm run build && cap sync android",
+    "cap:open": "cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
