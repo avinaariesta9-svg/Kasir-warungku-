@@ -1,80 +1,49 @@
-name: Build APK Kasir WarungKu
+
+     
+name: Build Kasir WarungKu APK
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
-      - master
-  workflow_dispatch:
 
 jobs:
-  build-apk:
-    name: Build Android Debug APK
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: 22
 
-      - name: Install NPM Dependencies
-        run: npm install --legacy-peer-deps
-
-      - name: Build Web Application
-        run: npm run build
-
-      - name: Ensure Capacitor Android Platform
-        run: |
-          if [ ! -f "android/gradlew" ] || [ ! -d "android/app" ]; then
-            echo "Inisialisasi ulang platform Android Capacitor..."
-            rm -rf android
-            npx cap add android
-          fi
-
-      - name: Sync Capacitor Android
-        run: npx cap sync android
-
-      - name: Setup Java 21 (JDK)
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          distribution: temurin
+          java-version: 17
 
-      - name: Setup Android SDK Environment & Accept Licenses
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Capacitor Sync
+        run: npx cap sync android
+
+      - name: Build APK
         run: |
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-
-          # Terima seluruh lisensi Android SDK secara otomatis
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-
-          # Instal Android SDK Platform API 36 dan build-tools bila belum terpasang
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36" "build-tools;35.0.0" "platform-tools" || true
-
-          # Pastikan file android/local.properties mengarah ke SDK
-          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          build-root-directory: android
-
-      - name: Build Android Debug APK
-        working-directory: android
-        run: |
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Kasir-WarungKu-Debug-APK
+          name: Kasir-WarungKu-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
