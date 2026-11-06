@@ -21,11 +21,28 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Setup Java 17 (Temurin)
+      - name: Install NPM Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build Web Application
+        run: npm run build
+
+      - name: Ensure Capacitor Android Platform
+        run: |
+          if [ ! -f "android/gradlew" ] || [ ! -d "android/app" ]; then
+            echo "Inisialisasi ulang platform Android Capacitor..."
+            rm -rf android
+            npx cap add android
+          fi
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Setup Java 21 (JDK)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Setup Android SDK Environment & Accept Licenses
         run: |
@@ -42,34 +59,18 @@ jobs:
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36" "build-tools;35.0.0" "platform-tools" || true
 
           # Pastikan file android/local.properties mengarah ke SDK
-          mkdir -p android
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Install NPM Dependencies
-        run: npm install --legacy-peer-deps
-
-      - name: Check & Prepare Android Platform
-        run: |
-          if [ ! -d "android" ]; then
-            echo "Folder android belum ada, menjalankan npx cap add android..."
-            npx cap add android
-          else
-            echo "Folder android sudah tersedia."
-          fi
-
-      - name: Build Web Application
-        run: npm run build
-
-      - name: Sync Capacitor Android
-        run: npx cap sync android
+        with:
+          build-root-directory: android
 
       - name: Build Android Debug APK
+        working-directory: android
         run: |
-          chmod +x android/gradlew
-          cd android && ./gradlew assembleDebug --no-daemon --stacktrace
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
