@@ -16,6 +16,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { PWAInstallBanner } from './PWAInstallBanner';
 
 export const AuthScreen: React.FC = () => {
   const { loginWithEmail, registerWithEmail, loginWithGoogle } = useAuth();
@@ -175,6 +176,11 @@ export const AuthScreen: React.FC = () => {
         >
           <Code className="w-4 h-4 stroke-[2.5]" />
         </button>
+      </div>
+
+      {/* PWA Install Banner untuk Android / Mobile */}
+      <div className="w-full max-w-sm mx-auto mb-2">
+        <PWAInstallBanner />
       </div>
 
       <div className="w-full max-w-sm mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200/80">

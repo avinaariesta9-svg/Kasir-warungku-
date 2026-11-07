@@ -9,8 +9,9 @@ function createPNG(width, height, isMaskable = false) {
 
   const cx = width / 2;
   const cy = height / 2;
-  const rOuter = width * (isMaskable ? 0.48 : 0.45);
-  const rInner = width * 0.35;
+
+  // Maskable safe zone margin (padding so content stays in central 80%)
+  const scale = isMaskable ? 0.75 : 1.0;
 
   for (let y = 0; y < height; y++) {
     const rowOffset = y * rowSize;
@@ -18,80 +19,83 @@ function createPNG(width, height, isMaskable = false) {
 
     for (let x = 0; x < width; x++) {
       const pixelOffset = rowOffset + 1 + x * 4;
-      const dx = x - cx;
-      const dy = y - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Emerald green brand colors (#059669 -> #047857)
-      let r = 5;
-      let g = 150;
-      let b = 105;
+      // Base monochrome black color (#09090b: rgb(9, 9, 11))
+      let r = 9;
+      let g = 9;
+      let b = 11;
       let a = 255;
 
-      if (isMaskable) {
-        // Full bleed background
-        const grad = y / height;
-        r = Math.floor(5 - grad * 1);
-        g = Math.floor(150 - grad * 30);
-        b = Math.floor(105 - grad * 18);
-      } else {
-        // Rounded rectangle squircle corner check
+      if (!isMaskable) {
+        // Rounded rectangle squircle corner check for non-maskable icons
         const cornerR = width * 0.22;
         const qx = Math.max(Math.abs(x - cx) - (width / 2 - cornerR), 0);
         const qy = Math.max(Math.abs(y - cy) - (height / 2 - cornerR), 0);
         if (Math.sqrt(qx * qx + qy * qy) > cornerR) {
           a = 0;
-        } else {
-          const grad = y / height;
-          r = Math.floor(5 - grad * 1);
-          g = Math.floor(150 - grad * 30);
-          b = Math.floor(105 - grad * 18);
         }
       }
 
       // Draw center icon elements (Store roof + cash register white silhouette)
       if (a > 0) {
+        // Map x, y relative to center scaled for safe zone
+        const relX = (x - cx) / scale + cx;
+        const relY = (y - cy) / scale + cy;
+
         // Roof triangle/trapezoid
         const roofTop = height * 0.26;
         const roofBottom = height * 0.42;
         const roofLeft = width * 0.24;
         const roofRight = width * 0.76;
 
-        const isRoof = (y >= roofTop && y <= roofBottom && 
-          x >= cx - (cx - roofLeft) * ((y - roofTop) / (roofBottom - roofTop) + 0.2) &&
-          x <= cx + (roofRight - cx) * ((y - roofTop) / (roofBottom - roofTop) + 0.2));
+        const isRoof = (
+          relY >= roofTop && relY <= roofBottom && 
+          relX >= cx - (cx - roofLeft) * ((relY - roofTop) / (roofBottom - roofTop) + 0.2) &&
+          relX <= cx + (roofRight - cx) * ((relY - roofTop) / (roofBottom - roofTop) + 0.2)
+        );
 
         // Store body
         const bodyTop = height * 0.44;
         const bodyBottom = height * 0.74;
         const bodyLeft = width * 0.28;
         const bodyRight = width * 0.72;
-        const isBody = (y >= bodyTop && y <= bodyBottom && x >= bodyLeft && x <= bodyRight);
+        const isBody = (relY >= bodyTop && relY <= bodyBottom && relX >= bodyLeft && relX <= bodyRight);
 
-        // Display screen cutout
+        // Display screen cutout (Dark display on white register body)
         const screenTop = height * 0.48;
         const screenBottom = height * 0.58;
         const screenLeft = width * 0.35;
         const screenRight = width * 0.65;
-        const isScreen = (y >= screenTop && y <= screenBottom && x >= screenLeft && x <= screenRight);
+        const isScreen = (relY >= screenTop && relY <= screenBottom && relX >= screenLeft && relX <= screenRight);
 
         // Keypad buttons
-        const isKeypad = (y >= height * 0.62 && y <= height * 0.68 && x >= width * 0.35 && x <= width * 0.65 && (x % Math.floor(width * 0.08) < Math.floor(width * 0.05)));
+        const isKeypad = (
+          relY >= height * 0.62 && relY <= height * 0.68 &&
+          relX >= width * 0.35 && relX <= width * 0.65 &&
+          (Math.floor(relX) % Math.floor(width * 0.08) < Math.floor(width * 0.05))
+        );
 
-        if ((isRoof || isBody) && !isScreen && !isKeypad) {
+        // Star badge on top-right
+        const starCx = width * 0.75;
+        const starCy = height * 0.27;
+        const starR = width * 0.08;
+        const isStarBadge = Math.sqrt((relX - starCx) ** 2 + (relY - starCy) ** 2) <= starR;
+
+        if ((isRoof || isBody || isStarBadge) && !isScreen && !isKeypad) {
+          // Pure white silhouette (#ffffff)
           r = 255;
           g = 255;
           b = 255;
         } else if (isScreen) {
-          // Display screen (mint green)
-          r = 236;
-          g = 253;
-          b = 245;
+          // Display screen (dark charcoal inset #18181b)
+          r = 24;
+          g = 24;
+          b = 27;
         } else if (isKeypad) {
-          // Keypad
-          r = 203;
-          g = 213;
-          b = 225;
+          // Keypad dots (dark slate)
+          r = 39;
+          g = 39;
+          b = 42;
         }
       }
 
@@ -160,4 +164,4 @@ fs.writeFileSync(path.join(publicDir, 'pwa-maskable-512x512.png'), createPNG(512
 fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), createPNG(180, 180, false));
 fs.writeFileSync(path.join(publicDir, 'favicon.ico'), createPNG(32, 32, false));
 
-console.log('PWA PNG icons generated successfully!');
+console.log('Monochrome Black & White Kasir WarungKu PNG icons generated successfully!');

@@ -1,5 +1,5 @@
 {
-  "name": "Kasir Warungku",
+  "name": "Kasir WarungKu",
   "description": "Aplikasi kasir warung mobile-first berbasis PWA untuk HP Android.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
