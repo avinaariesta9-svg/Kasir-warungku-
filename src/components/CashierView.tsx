@@ -30,6 +30,7 @@ import { PaymentModal } from './PaymentModal';
 import { ReceiptView } from './ReceiptView';
 import { PrinterSettingsModal } from './PrinterSettingsModal';
 import { QuickAddProductModal } from './QuickAddProductModal';
+import { QrisSettingsModal } from './QrisSettingsModal';
 
 export const CashierView: React.FC = () => {
   const { products, loading: productsLoading } = useProducts();
@@ -64,6 +65,7 @@ export const CashierView: React.FC = () => {
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isPrinterSettingsOpen, setIsPrinterSettingsOpen] = useState(false);
+  const [isQrisSettingsOpen, setIsQrisSettingsOpen] = useState(false);
 
   const [lastCompletedTx, setLastCompletedTx] = useState<Transaction | null>(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
@@ -665,6 +667,16 @@ export const CashierView: React.FC = () => {
               >
                 <Printer className="w-4 h-4 text-slate-700" />
               </button>
+
+              {/* QRIS Setup Button */}
+              <button
+                onClick={() => setIsQrisSettingsOpen(true)}
+                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition active:scale-95 shrink-0 flex items-center justify-center border border-slate-200 cursor-pointer"
+                title="Pengaturan QRIS Toko (Upload & Cetak Stand QRIS)"
+                aria-label="Pengaturan QRIS Toko"
+              >
+                <QrCode className="w-4 h-4 text-slate-700" />
+              </button>
             </div>
 
             {/* Category Filter Pills */}
@@ -849,6 +861,43 @@ export const CashierView: React.FC = () => {
         </div>
       )}
 
+      {/* FLOATING ACTION BAR: CETAK STRUK TRANSAKSI TERAKHIR (HP ANDROID & DESKTOP) */}
+      {cart.length === 0 && lastCompletedTx && !isReceiptOpen && (
+        <div className="fixed bottom-20 sm:bottom-6 left-0 right-0 z-30 px-3 sm:px-6 pointer-events-none">
+          <div className="max-w-md mx-auto pointer-events-auto">
+            <div className="bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl shadow-xl border border-slate-700/60 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+                  Transaksi Berhasil Selesai
+                </p>
+                <p className="text-xs font-mono font-bold text-slate-100 truncate mt-0.5">
+                  {lastCompletedTx.invoiceNumber} • {formatRupiah(lastCompletedTx.total)}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsReceiptOpen(true)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Cetak Struk</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLastCompletedTx(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white transition"
+                  title="Tutup Notifikasi"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* SLIDING BOTTOM SHEET CART DRAWER UNTUK HP ANDROID (lg:hidden) */}
       {isCartDrawerOpen && (
         <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs flex items-end justify-center p-0 animate-in fade-in lg:hidden">
@@ -900,6 +949,12 @@ export const CashierView: React.FC = () => {
       <PrinterSettingsModal
         isOpen={isPrinterSettingsOpen}
         onClose={() => setIsPrinterSettingsOpen(false)}
+      />
+
+      {/* QRIS Settings Modal */}
+      <QrisSettingsModal
+        isOpen={isQrisSettingsOpen}
+        onClose={() => setIsQrisSettingsOpen(false)}
       />
 
       {/* Receipt View Modal */}

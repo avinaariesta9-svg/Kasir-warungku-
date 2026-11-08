@@ -11,6 +11,7 @@ import {
   FileText,
   ExternalLink,
   ShieldAlert,
+  Smartphone,
 } from 'lucide-react';
 import { useTransactions } from '../context/TransactionContext';
 import { useAuth } from '../context/AuthContext';
@@ -164,6 +165,33 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
 
   const handleTestPrintBrowser = () => {
     setShowTestReceipt(true);
+  };
+
+  const handleTestPrintRawBt = () => {
+    setStatusMessage(null);
+    try {
+      const res = PrinterService.printRawBt(
+        dummyTransaction,
+        store,
+        printerSettings.paperWidth || '58mm'
+      );
+      if (res.success) {
+        setStatusMessage({
+          type: 'success',
+          text: 'Perintah uji cetak ESC/POS berhasil dikirim ke RawBT Android!',
+        });
+      } else {
+        setStatusMessage({
+          type: 'error',
+          text: res.error || 'Gagal mengirim ke RawBT. Pastikan aplikasi RawBT terpasang di HP.',
+        });
+      }
+    } catch (e: unknown) {
+      setStatusMessage({
+        type: 'error',
+        text: (e as Error).message || 'Gagal memicu RawBT.',
+      });
+    }
   };
 
   return (
@@ -388,35 +416,60 @@ export const PrinterSettingsModal: React.FC<PrinterSettingsModalProps> = ({
             </label>
           </div>
 
-          {/* 5. Uji Cetak Bluetooth ESC/POS */}
-          <button
-            type="button"
-            onClick={handleTestPrintBluetooth}
-            disabled={testPrinting}
-            className="w-full py-2.5 border border-slate-300 hover:bg-slate-100 active:scale-98 rounded-xl text-xs font-semibold text-slate-700 transition flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Bluetooth className="w-4 h-4 text-blue-600" />
-            <span>
-              {testPrinting
-                ? 'Mengirim ke Printer...'
-                : isBtConnected
-                ? `Uji Cetak Bluetooth (${connectedName})`
-                : 'Uji Cetak Bluetooth (ESC/POS)'}
-            </span>
-          </button>
+          {/* 5. Uji Cetak: RawBT & Bluetooth */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={handleTestPrintRawBt}
+              className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-98 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>Uji Cetak via RawBT ({printerSettings.paperWidth || '58mm'})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleTestPrintBluetooth}
+              disabled={testPrinting}
+              className="w-full py-2.5 border border-slate-300 hover:bg-slate-100 active:scale-98 rounded-xl text-xs font-semibold text-slate-700 transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Bluetooth className="w-4 h-4 text-blue-600" />
+              <span>
+                {testPrinting
+                  ? 'Mengirim ke Printer...'
+                  : isBtConnected
+                  ? `Uji Cetak Bluetooth (${connectedName})`
+                  : 'Uji Cetak Bluetooth (ESC/POS)'}
+              </span>
+            </button>
+          </div>
 
           {/* 6. Keterangan Teknis & Keterbatasan Printer */}
-          <div className="bg-blue-50/70 p-3.5 rounded-2xl border border-blue-200/80 text-xs text-blue-900 space-y-1.5">
-            <p className="font-bold flex items-center gap-1.5 text-blue-800">
-              <HelpCircle className="w-3.5 h-3.5" />
-              <span>Catatan Kompatibilitas Printer Thermal Android:</span>
-            </p>
-            <ul className="text-[11px] text-blue-800/90 list-disc list-inside space-y-1 leading-relaxed">
+          <div className="bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200/80 text-xs text-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="font-bold flex items-center gap-1.5 text-emerald-950">
+                <HelpCircle className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Rekomendasi Printer Thermal HP Android:</span>
+              </p>
+              <a
+                href="https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[10px] bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 shrink-0"
+              >
+                <span>Unduh RawBT</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            </div>
+            <ul className="text-[11px] text-emerald-900 list-disc list-inside space-y-1 leading-relaxed">
               <li>
-                <strong>Bluetooth BLE (4.0/5.0)</strong>: Didukung langsung oleh browser Chrome Android.
+                <strong>RawBT Print Service (Rekomendasi Utama)</strong>: Solusi terbaik untuk HP Android. Mendukung semua merk printer thermal Bluetooth 58mm &amp; 80mm (Panda, Eppos, GOOJPRT, VSC, Bella, Zywell, Kassen) serta kabel USB OTG.
               </li>
               <li>
-                <strong>Bluetooth Classic 2.0 (SPP)</strong>: Banyak printer murah hanya mendukung Bluetooth Classic lama. Jika tidak terdeteksi via Bluetooth browser, gunakan tombol <strong>Cetak / PDF</strong> bawaan HP atau tautan <strong>RawBT Print Service</strong>.
+                <strong>Web Bluetooth BLE</strong>: Khusus printer Bluetooth Low Energy (4.0/5.0) via browser Google Chrome Android.
+              </li>
+              <li>
+                <strong>Cetak Universal / PDF</strong>: Berfungsi di semua HP/komputer tanpa perlu koneksi Bluetooth.
               </li>
             </ul>
           </div>

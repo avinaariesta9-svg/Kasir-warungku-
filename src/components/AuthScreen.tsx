@@ -83,6 +83,9 @@ export const AuthScreen: React.FC = () => {
         setErrorMessage('Format alamat email tidak valid.');
       } else if (errCode === 'auth/operation-not-allowed') {
         setErrorMessage('Login email belum diaktifkan di Firebase Console. Anda dapat masuk cepat menggunakan tombol Google di bawah.');
+      } else if (errCode === 'auth/unauthorized-domain') {
+        const curHost = typeof window !== 'undefined' ? window.location.hostname : 'domain Vercel';
+        setErrorMessage(`Domain "${curHost}" belum diizinkan di Firebase Auth. Buka Firebase Console > Authentication > Settings > Authorized Domains, lalu tambahkan "${curHost}".`);
       } else {
         setErrorMessage((err as Error).message || 'Terjadi kendala saat login.');
       }
@@ -135,6 +138,9 @@ export const AuthScreen: React.FC = () => {
         setDevErrorMessage('Password Rahasia Developer salah.');
       } else if (errCode === 'auth/user-not-found') {
         setDevErrorMessage('Akun Developer tidak ditemukan.');
+      } else if (errCode === 'auth/unauthorized-domain') {
+        const curHost = typeof window !== 'undefined' ? window.location.hostname : 'domain ini';
+        setDevErrorMessage(`Domain "${curHost}" belum diizinkan di Firebase Auth. Tambahkan "${curHost}" ke Authorized Domains di Firebase Console.`);
       } else {
         setDevErrorMessage((err as Error).message || 'Gagal login developer.');
       }
@@ -152,6 +158,11 @@ export const AuthScreen: React.FC = () => {
       const errCode = (err as { code?: string })?.code || '';
       if (errCode === 'auth/popup-closed-by-user') {
         setErrorMessage('Jendela login Google ditutup sebelum selesai.');
+      } else if (errCode === 'auth/unauthorized-domain') {
+        const curHost = typeof window !== 'undefined' ? window.location.hostname : 'domain Vercel';
+        setErrorMessage(
+          `Domain "${curHost}" belum diizinkan untuk login di Firebase. Buka Firebase Console > Authentication > Settings > Authorized Domains, lalu tambahkan "${curHost}".`
+        );
       } else {
         setErrorMessage((err as Error).message || 'Gagal masuk dengan Google.');
       }

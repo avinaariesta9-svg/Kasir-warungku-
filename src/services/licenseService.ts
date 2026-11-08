@@ -23,14 +23,18 @@ export class LicenseService {
    * Mendapatkan atau membuat ID perangkat unik (Device ID) yang tersimpan di browser HP ini
    */
   static getOrCreateDeviceId(): string {
-    let deviceId = localStorage.getItem(DEVICE_STORAGE_KEY);
-    if (!deviceId) {
-      const part1 = Math.random().toString(36).substring(2, 6).toUpperCase();
-      const part2 = Math.random().toString(36).substring(2, 6).toUpperCase();
-      deviceId = `DEV-${part1}-${part2}`;
-      localStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
+    try {
+      let deviceId = localStorage.getItem(DEVICE_STORAGE_KEY);
+      if (!deviceId) {
+        const part1 = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const part2 = Math.random().toString(36).substring(2, 6).toUpperCase();
+        deviceId = `DEV-${part1}-${part2}`;
+        localStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
+      }
+      return deviceId;
+    } catch {
+      return 'DEV-LOCAL-APP';
     }
-    return deviceId;
   }
 
   /**
@@ -52,17 +56,25 @@ export class LicenseService {
    * Mengambil nomor WhatsApp developer (bisa diatur oleh developer di dashboard)
    */
   static getDeveloperPhone(): string {
-    const stored = localStorage.getItem(DEV_PHONE_STORAGE_KEY);
-    return stored?.trim() || DEFAULT_DEVELOPER_PHONE;
+    try {
+      const stored = localStorage.getItem(DEV_PHONE_STORAGE_KEY);
+      return stored?.trim() || DEFAULT_DEVELOPER_PHONE;
+    } catch {
+      return DEFAULT_DEVELOPER_PHONE;
+    }
   }
 
   /**
    * Menyimpan nomor WhatsApp developer
    */
   static setDeveloperPhone(phone: string): void {
-    const clean = phone.replace(/[^0-9]/g, '');
-    const finalPhone = clean.startsWith('0') ? '62' + clean.slice(1) : clean;
-    localStorage.setItem(DEV_PHONE_STORAGE_KEY, finalPhone);
+    try {
+      const clean = phone.replace(/[^0-9]/g, '');
+      const finalPhone = clean.startsWith('0') ? '62' + clean.slice(1) : clean;
+      localStorage.setItem(DEV_PHONE_STORAGE_KEY, finalPhone);
+    } catch {
+      // Ignore storage errors in restricted contexts
+    }
   }
 
   /**

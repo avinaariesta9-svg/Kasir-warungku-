@@ -90,6 +90,20 @@
         "updatedAt": {
           "type": "string",
           "description": "Waktu pembaruan toko ISO string"
+        },
+        "qrisImageUrl": {
+          "type": "string",
+          "description": "Data URL gambar QRIS toko yang diunggah"
+        },
+        "qrisMerchantName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Nama merchant atau pemilik rekening QRIS toko"
+        },
+        "qrisNmid": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "NMID nasional QRIS toko"
         }
       },
       "required": ["id", "ownerId", "storeName", "whatsapp"]

@@ -307,7 +307,8 @@ export class PrinterService {
   static generateEscPosBytes(
     transaction: Transaction,
     store: StoreProfile | null,
-    paperWidth: '58mm' | '80mm'
+    paperWidth: '58mm' | '80mm',
+    isReprint: boolean = false
   ): Uint8Array {
     const lineWidth = paperWidth === '80mm' ? 48 : 32;
     const divider = '-'.repeat(lineWidth);
@@ -340,11 +341,17 @@ export class PrinterService {
     parts.push(GS, 0x21, 0x00);
 
     // Store address & WhatsApp if available
-    if (store?.address) {
-      for (const b of encoder.encode(store.address + '\n')) parts.push(b);
-    }
+    const storeAddress = store?.address || 'Kasir WarungKu Mobile';
+    for (const b of encoder.encode(storeAddress + '\n')) parts.push(b);
     if (store?.whatsapp) {
       for (const b of encoder.encode(`WA: ${store.whatsapp}\n`)) parts.push(b);
+    }
+
+    // Jika struk merupakan cetak ulang / salinan
+    if (isReprint) {
+      parts.push(ESC, 0x45, 0x01);
+      for (const b of encoder.encode('*** SALINAN / CETAK ULANG ***\n')) parts.push(b);
+      parts.push(ESC, 0x45, 0x00);
     }
 
     // Divider
@@ -357,7 +364,8 @@ export class PrinterService {
     for (const b of encoder.encode(this.padTwoColumns(`No: ${transaction.invoiceNumber}`, dateFormatted, lineWidth) + '\n')) {
       parts.push(b);
     }
-    for (const b of encoder.encode(this.padTwoColumns('Kasir: Warung', `Metode: ${transaction.paymentMethod}`, lineWidth) + '\n')) {
+    const cashierName = store?.ownerName ? `Kasir: ${store.ownerName}` : 'Kasir: Warung';
+    for (const b of encoder.encode(this.padTwoColumns(cashierName, `Metode: ${transaction.paymentMethod}`, lineWidth) + '\n')) {
       parts.push(b);
     }
 
@@ -380,14 +388,14 @@ export class PrinterService {
     // Divider
     for (const b of encoder.encode(divider + '\n')) parts.push(b);
 
-    // Subtotal and Discount if applicable
+    // Subtotal and Discount
     for (const b of encoder.encode(this.padTwoColumns('SUBTOTAL', this.formatRp(transaction.subtotal), lineWidth) + '\n')) {
       parts.push(b);
     }
-    if (transaction.discount && transaction.discount > 0) {
-      for (const b of encoder.encode(this.padTwoColumns('DISKON', `-${this.formatRp(transaction.discount)}`, lineWidth) + '\n')) {
-        parts.push(b);
-      }
+    const discountAmt = transaction.discount || 0;
+    const discountStr = discountAmt > 0 ? `-${this.formatRp(discountAmt)}` : 'Rp 0';
+    for (const b of encoder.encode(this.padTwoColumns('DISKON', discountStr, lineWidth) + '\n')) {
+      parts.push(b);
     }
 
     // Bold ON for Total
@@ -397,16 +405,19 @@ export class PrinterService {
     }
     parts.push(ESC, 0x45, 0x00);
 
-    // Payment details
+    // Payment details & Kembalian
     if (transaction.paymentMethod === 'TUNAI') {
-      for (const b of encoder.encode(this.padTwoColumns('TUNAI', this.formatRp(transaction.cashAmount), lineWidth) + '\n')) {
+      for (const b of encoder.encode(this.padTwoColumns('BAYAR (TUNAI)', this.formatRp(transaction.cashAmount), lineWidth) + '\n')) {
         parts.push(b);
       }
-      for (const b of encoder.encode(this.padTwoColumns('KEMBALI', this.formatRp(transaction.changeAmount), lineWidth) + '\n')) {
+      for (const b of encoder.encode(this.padTwoColumns('KEMBALIAN', this.formatRp(transaction.changeAmount), lineWidth) + '\n')) {
         parts.push(b);
       }
     } else {
-      for (const b of encoder.encode(this.padTwoColumns('STATUS', 'LUNAS (QRIS)', lineWidth) + '\n')) {
+      for (const b of encoder.encode(this.padTwoColumns(`BAYAR (${transaction.paymentMethod})`, this.formatRp(transaction.total), lineWidth) + '\n')) {
+        parts.push(b);
+      }
+      for (const b of encoder.encode(this.padTwoColumns('KEMBALIAN', 'Rp 0', lineWidth) + '\n')) {
         parts.push(b);
       }
     }
@@ -418,19 +429,19 @@ export class PrinterService {
     parts.push(ESC, 0x61, 0x01);
     for (const b of encoder.encode('Terima Kasih Atas Kunjungan Anda\n')) parts.push(b);
     for (const b of encoder.encode('Barang yang dibeli tidak dapat ditukar\n')) parts.push(b);
-    for (const b of encoder.encode('Powered by Kasir Warungku\n\n\n\n')) parts.push(b);
+    for (const b of encoder.encode('Kasir WarungKu Mobile POS\n\n\n\n')) parts.push(b);
 
-    // Cut Paper command
+    // Cut Paper command (untuk printer 80mm atau printer yang mendukung auto-cutter)
     parts.push(GS, 0x56, 0x41, 0x03);
 
     return new Uint8Array(parts);
   }
 
-  // Print via Web Bluetooth
   // Print via Web Bluetooth (ESC/POS)
   static async printBluetooth(
     transaction: Transaction,
-    store: StoreProfile | null
+    store: StoreProfile | null,
+    isReprint: boolean = false
   ): Promise<{ success: boolean; error?: string }> {
     // PENTING: Jangan memanggil connectBluetooth() / requestDevice secara otomatis di sini!
     // Sesuai Permissions Policy dan Web Bluetooth standard, requestDevice hanya boleh dipicu
@@ -439,13 +450,13 @@ export class PrinterService {
       return {
         success: false,
         error:
-          'Printer Bluetooth belum terhubung. Silakan buka Pengaturan Printer dan tekan "Hubungkan Printer", atau gunakan opsi "Cetak Browser / Simpan PDF".',
+          'Printer Bluetooth belum terhubung. Silakan buka Pengaturan Printer dan tekan "Hubungkan Printer", atau gunakan opsi "Cetak Struk via RawBT" di HP Android.',
       };
     }
 
     try {
       const settings = this.getSettings();
-      const rawBytes = this.generateEscPosBytes(transaction, store, settings.paperWidth);
+      const rawBytes = this.generateEscPosBytes(transaction, store, settings.paperWidth, isReprint);
 
       // Send in MTU-safe chunks (max 50 bytes per packet)
       const chunkSize = 50;
@@ -480,7 +491,8 @@ export class PrinterService {
   static generateReceiptText(
     transaction: Transaction,
     store: StoreProfile | null,
-    paperWidth: '58mm' | '80mm' = '58mm'
+    paperWidth: '58mm' | '80mm' = '58mm',
+    isReprint: boolean = false
   ): string {
     const width = paperWidth === '80mm' ? 48 : 32;
     const divider = '='.repeat(width);
@@ -496,13 +508,20 @@ export class PrinterService {
     // Center header
     const storeName = (store?.storeName || 'KASIR WARUNGKU').toUpperCase();
     lines.push(this.centerText(storeName, width));
-    if (store?.address) lines.push(this.centerText(store.address, width));
+    const storeAddress = store?.address || 'Kasir WarungKu Mobile';
+    lines.push(this.centerText(storeAddress, width));
     if (store?.whatsapp) lines.push(this.centerText(`WA: ${store.whatsapp}`, width));
+
+    if (isReprint) {
+      lines.push(this.centerText('*** SALINAN / CETAK ULANG ***', width));
+    }
+
     lines.push(thinDivider);
 
     // Metadata
     lines.push(this.padTwoColumns(`No: ${transaction.invoiceNumber}`, dateFormatted, width));
-    lines.push(this.padTwoColumns('Kasir: Warung', `Metode: ${transaction.paymentMethod}`, width));
+    const cashierName = store?.ownerName ? `Kasir: ${store.ownerName}` : 'Kasir: Warung';
+    lines.push(this.padTwoColumns(cashierName, `Metode: ${transaction.paymentMethod}`, width));
     lines.push(thinDivider);
 
     // Items
@@ -516,22 +535,22 @@ export class PrinterService {
 
     // Totals
     lines.push(this.padTwoColumns('SUBTOTAL', this.formatRp(transaction.subtotal), width));
-    if (transaction.discount && transaction.discount > 0) {
-      lines.push(this.padTwoColumns('DISKON', `-${this.formatRp(transaction.discount)}`, width));
-    }
+    const discountAmt = transaction.discount || 0;
+    lines.push(this.padTwoColumns('DISKON', discountAmt > 0 ? `-${this.formatRp(discountAmt)}` : 'Rp 0', width));
     lines.push(this.padTwoColumns('TOTAL BAYAR', this.formatRp(transaction.total), width));
 
     if (transaction.paymentMethod === 'TUNAI') {
-      lines.push(this.padTwoColumns('TUNAI', this.formatRp(transaction.cashAmount), width));
-      lines.push(this.padTwoColumns('KEMBALI', this.formatRp(transaction.changeAmount), width));
+      lines.push(this.padTwoColumns('BAYAR (TUNAI)', this.formatRp(transaction.cashAmount), width));
+      lines.push(this.padTwoColumns('KEMBALIAN', this.formatRp(transaction.changeAmount), width));
     } else {
-      lines.push(this.padTwoColumns('STATUS', 'LUNAS (QRIS)', width));
+      lines.push(this.padTwoColumns(`BAYAR (${transaction.paymentMethod})`, this.formatRp(transaction.total), width));
+      lines.push(this.padTwoColumns('KEMBALIAN', 'Rp 0', width));
     }
 
     lines.push(thinDivider);
     lines.push(this.centerText('Terima Kasih Atas Kunjungan Anda', width));
     lines.push(this.centerText('Barang yang dibeli tidak dapat ditukar', width));
-    lines.push(this.centerText('Kasir Warungku POS', width));
+    lines.push(this.centerText('Kasir WarungKu Mobile POS', width));
     lines.push(divider);
 
     return lines.join('\n');
@@ -547,14 +566,15 @@ export class PrinterService {
   static downloadReceiptTxt(
     transaction: Transaction,
     store: StoreProfile | null,
-    paperWidth: '58mm' | '80mm' = '58mm'
+    paperWidth: '58mm' | '80mm' = '58mm',
+    isReprint: boolean = false
   ): void {
-    const text = this.generateReceiptText(transaction, store, paperWidth);
+    const text = this.generateReceiptText(transaction, store, paperWidth, isReprint);
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Struk-${transaction.invoiceNumber || 'transaksi'}.txt`;
+    a.download = `Struk-${transaction.invoiceNumber || 'transaksi'}${isReprint ? '-salinan' : ''}.txt`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
@@ -563,18 +583,67 @@ export class PrinterService {
     }, 100);
   }
 
-  // Fallback 2: Generate RawBT intent URI for Android Bluetooth Classic thermal printers
+  // Generate RawBT URI scheme (rawbt:data:base64,...)
   static getRawBtUri(
     transaction: Transaction,
     store: StoreProfile | null,
-    paperWidth: '58mm' | '80mm' = '58mm'
+    paperWidth: '58mm' | '80mm' = '58mm',
+    isReprint: boolean = false
   ): string {
-    const rawBytes = this.generateEscPosBytes(transaction, store, paperWidth);
+    const rawBytes = this.generateEscPosBytes(transaction, store, paperWidth, isReprint);
     let binary = '';
     for (let i = 0; i < rawBytes.length; i++) {
       binary += String.fromCharCode(rawBytes[i]);
     }
     const base64 = btoa(binary);
     return `rawbt:data:base64,${base64}`;
+  }
+
+  // Generate Android Intent URI for RawBT (fallback standard intent)
+  static getRawBtIntentUri(
+    transaction: Transaction,
+    store: StoreProfile | null,
+    paperWidth: '58mm' | '80mm' = '58mm',
+    isReprint: boolean = false
+  ): string {
+    const rawBytes = this.generateEscPosBytes(transaction, store, paperWidth, isReprint);
+    let binary = '';
+    for (let i = 0; i < rawBytes.length; i++) {
+      binary += String.fromCharCode(rawBytes[i]);
+    }
+    const base64 = btoa(binary);
+    return `intent:base64,${base64}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
+  }
+
+  // Trigger pencetakan RawBT secara instan di HP Android
+  static printRawBt(
+    transaction: Transaction,
+    store: StoreProfile | null,
+    paperWidth: '58mm' | '80mm' = '58mm',
+    isReprint: boolean = false
+  ): { success: boolean; uri: string; error?: string } {
+    try {
+      const uri = this.getRawBtUri(transaction, store, paperWidth, isReprint);
+      if (typeof window !== 'undefined') {
+        // Buat anchor element dinamis dan picu klik langsung
+        const a = document.createElement('a');
+        a.href = uri;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          if (document.body.contains(a)) {
+            document.body.removeChild(a);
+          }
+        }, 300);
+      }
+      return { success: true, uri };
+    } catch (err: unknown) {
+      return {
+        success: false,
+        uri: '',
+        error: (err as Error).message || 'Gagal memicu pencetakan RawBT pada perangkat Android.',
+      };
+    }
   }
 }

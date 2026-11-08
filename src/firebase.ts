@@ -1,12 +1,33 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import fallbackConfig from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
+// Dukungan environment variables Vercel (VITE_FIREBASE_*) dengan fallback ke firebase-applet-config.json
+const resolvedConfig = {
+  apiKey: (import.meta.env.VITE_FIREBASE_API_KEY || fallbackConfig.apiKey || '').trim(),
+  authDomain: (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || fallbackConfig.authDomain || '').trim(),
+  projectId: (import.meta.env.VITE_FIREBASE_PROJECT_ID || fallbackConfig.projectId || '').trim(),
+  storageBucket: (import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || fallbackConfig.storageBucket || '').trim(),
+  messagingSenderId: (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || fallbackConfig.messagingSenderId || '').trim(),
+  appId: (import.meta.env.VITE_FIREBASE_APP_ID || fallbackConfig.appId || '').trim(),
+};
 
-// CRITICAL: Specify databaseId from config
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Hindari inisialisasi ganda
+const app = getApps().length > 0 ? getApp() : initializeApp(resolvedConfig);
+
+const customDbId = (
+  import.meta.env.VITE_FIREBASE_DATABASE_ID ||
+  fallbackConfig.firestoreDatabaseId ||
+  ''
+).trim();
+
+// CRITICAL: Specify databaseId from config if provided and not default
+export const db =
+  customDbId && customDbId !== '(default)'
+    ? getFirestore(app, customDbId)
+    : getFirestore(app);
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 

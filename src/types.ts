@@ -28,6 +28,9 @@ export interface StoreProfile {
   planExpiresAt?: string;
   memberEmails?: string[]; // Daftar email admin/kasir yang diundang (lowercase)
   memberUids?: string[]; // Daftar UID user yang terikat ke toko ini
+  qrisImageUrl?: string; // Data URL Base64 gambar QRIS toko dari galeri HP
+  qrisMerchantName?: string; // Nama merchant / pemilik rekening QRIS
+  qrisNmid?: string; // NMID (National Merchant ID, opsional)
 }
 
 export type StoreRole = 'owner' | 'cashier'; // 'Pemilik' | 'Admin Kasir'

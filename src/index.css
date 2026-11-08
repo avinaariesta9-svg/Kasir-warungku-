@@ -21,7 +21,9 @@ html, body {
   body * {
     visibility: hidden;
   }
-  #thermal-receipt, #thermal-receipt * {
+  #thermal-receipt, #thermal-receipt *,
+  #qris-print-card, #qris-print-card *,
+  #qris-bill-print, #qris-bill-print * {
     visibility: visible;
   }
   #thermal-receipt {

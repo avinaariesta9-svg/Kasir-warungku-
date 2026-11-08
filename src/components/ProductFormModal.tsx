@@ -257,7 +257,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   <input
                     type="number"
                     min="0"
-                    step="100"
+                    step="1"
                     value={costPrice}
                     onChange={(e) => setCostPrice(e.target.value)}
                     placeholder="0"
@@ -277,8 +277,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   <input
                     type="number"
                     required
-                    min="0"
-                    step="100"
+                    min="1"
+                    step="1"
                     value={sellingPrice}
                     onChange={(e) => setSellingPrice(e.target.value)}
                     placeholder="0"

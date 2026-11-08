@@ -37,8 +37,13 @@ interface AuthContextType {
   loginWithEmail: (email: string, pass: string) => Promise<void>;
   registerWithEmail: (email: string, pass: string, storeName?: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
-  logout: () => Promise<void>;
   updateStore: (data: { storeName: string; address: string; whatsapp: string }) => Promise<void>;
+  updateQrisSettings: (data: {
+    qrisImageUrl: string;
+    qrisMerchantName?: string;
+    qrisNmid?: string;
+  }) => Promise<void>;
+  removeQrisSettings: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -112,7 +117,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Safety timeout: jika Firebase Auth responsnya lambat atau terhalang jaringan/domain,
+    // jangan biarkan layar tertahan di splash screen tanpa batas waktu.
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+      setStoreLoading(false);
+    }, 3500);
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      clearTimeout(safetyTimer);
       setUser(currentUser);
       setLoading(false);
 
@@ -285,6 +298,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateQrisSettings = async (data: {
+    qrisImageUrl: string;
+    qrisMerchantName?: string;
+    qrisNmid?: string;
+  }) => {
+    if (!store) throw new Error('Profil toko belum dimuat');
+    const activeStoreId = store.id || user?.uid;
+    if (!activeStoreId) throw new Error('ID toko tidak ditemukan');
+
+    const now = new Date().toISOString();
+    const payload: Partial<StoreProfile> = {
+      qrisImageUrl: data.qrisImageUrl,
+      qrisMerchantName: data.qrisMerchantName?.trim() || store.storeName,
+      qrisNmid: data.qrisNmid?.trim() || '',
+      updatedAt: now,
+    };
+
+    // 1. Simpan ke IndexedDB lokal dan update state React seketika (Offline-First)
+    const updatedStore: StoreProfile = {
+      ...store,
+      ...payload,
+    };
+    setStore(updatedStore);
+    try {
+      await IndexedDbService.saveStoreProfile(updatedStore);
+    } catch (idbErr) {
+      console.warn('Gagal menyimpan profil ke IndexedDB:', idbErr);
+    }
+
+    // 2. Simpan ke Cloud Firestore jika online
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      try {
+        const storeDocRef = doc(db, 'stores', activeStoreId);
+        await updateDoc(storeDocRef, payload);
+      } catch (err) {
+        console.warn('Pembaruan QRIS ke Firestore ditunda:', err);
+      }
+    }
+  };
+
+  const removeQrisSettings = async () => {
+    if (!store) throw new Error('Profil toko belum dimuat');
+    const activeStoreId = store.id || user?.uid;
+    if (!activeStoreId) throw new Error('ID toko tidak ditemukan');
+
+    const now = new Date().toISOString();
+    const payload: Partial<StoreProfile> = {
+      qrisImageUrl: '',
+      qrisMerchantName: '',
+      qrisNmid: '',
+      updatedAt: now,
+    };
+
+    const updatedStore: StoreProfile = {
+      ...store,
+      ...payload,
+    };
+    setStore(updatedStore);
+    try {
+      await IndexedDbService.saveStoreProfile(updatedStore);
+    } catch (idbErr) {
+      console.warn('Gagal menghapus profil dari IndexedDB:', idbErr);
+    }
+
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      try {
+        const storeDocRef = doc(db, 'stores', activeStoreId);
+        await updateDoc(storeDocRef, payload);
+      } catch (err) {
+        console.warn('Hapus QRIS ke Firestore ditunda:', err);
+      }
+    }
+  };
+
   const isAdmin = Boolean(
     user && user.email === 'avinaariesta9@gmail.com'
   );
@@ -308,6 +395,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithGoogle,
         logout,
         updateStore,
+        updateQrisSettings,
+        removeQrisSettings,
       }}
     >
       {children}

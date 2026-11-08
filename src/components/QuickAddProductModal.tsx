@@ -248,7 +248,7 @@ export const QuickAddProductModal: React.FC<QuickAddProductModalProps> = ({
                   type="number"
                   required
                   min="1"
-                  step="100"
+                  step="1"
                   value={sellingPrice}
                   onChange={(e) => setSellingPrice(e.target.value)}
                   placeholder="Contoh: 15000"
@@ -263,7 +263,7 @@ export const QuickAddProductModal: React.FC<QuickAddProductModalProps> = ({
                 <input
                   type="number"
                   min="0"
-                  step="100"
+                  step="1"
                   value={costPrice}
                   onChange={(e) => setCostPrice(e.target.value)}
                   placeholder="Contoh: 12500"

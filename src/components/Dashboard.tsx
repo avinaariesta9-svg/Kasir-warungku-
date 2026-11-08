@@ -37,6 +37,7 @@ import {
   CloudUpload,
   RefreshCw,
   MessageSquare,
+  QrCode,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductContext';
@@ -54,6 +55,7 @@ import { HelpGuideModal } from './HelpGuideModal';
 import { StoreActivationModal } from './StoreActivationModal';
 import { StoreMembersModal } from './StoreMembersModal';
 import { ChatDeveloperModal } from './ChatDeveloperModal';
+import { QrisSettingsModal } from './QrisSettingsModal';
 import { ChatService } from '../services/chatService';
 
 interface DashboardProps {
@@ -72,6 +74,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
 
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [printerModalOpen, setPrinterModalOpen] = useState(false);
+  const [qrisModalOpen, setQrisModalOpen] = useState(false);
   const [backupModalOpen, setBackupModalOpen] = useState(false);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [activationModalOpen, setActivationModalOpen] = useState(false);
@@ -340,6 +343,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
               <Printer className="w-4 h-4" />
             </button>
 
+            {/* Tombol Pengaturan QRIS Toko */}
+            {(isOwner || isAdmin) && (
+              <button
+                type="button"
+                onClick={() => setQrisModalOpen(true)}
+                className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition text-white flex items-center justify-center cursor-pointer"
+                title="Pengaturan QRIS Pembayaran Toko"
+                aria-label="Pengaturan QRIS Toko"
+              >
+                <QrCode className="w-4 h-4" />
+              </button>
+            )}
+
             {/* Tombol Edit Profil Toko */}
             {(isOwner || isAdmin) && (
               <button
@@ -506,6 +522,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
                   <ArrowRight className="w-3.5 h-3.5" />
                 </div>
               </button>
+
+              {/* Quick Action: Pengaturan QRIS Pembayaran Toko (Desain Hitam Putih Minimalis) */}
+              {(isOwner || isAdmin) && (
+                <button
+                  type="button"
+                  onClick={() => setQrisModalOpen(true)}
+                  className="w-full py-3.5 bg-black text-white hover:bg-neutral-900 border border-neutral-800 rounded-2xl shadow-xs flex items-center justify-between px-4 transition active:scale-98 cursor-pointer text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-white text-black flex items-center justify-center shrink-0">
+                      <QrCode className="w-5 h-5 text-black" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-black text-white">Pengaturan QRIS Toko</p>
+                        <span className="text-[10px] bg-white text-black font-extrabold px-1.5 py-0.2 rounded">
+                          {store?.qrisImageUrl ? 'Aktif' : 'Upload'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-300">
+                        {store?.qrisImageUrl
+                          ? `QRIS siap: ${store.qrisMerchantName || store.storeName}`
+                          : 'Upload gambar QRIS dari galeri HP warung Anda'}
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-white shrink-0" />
+                </button>
+              )}
 
               {/* Quick Action: Laporan Finansial */}
               <button
@@ -918,6 +963,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenDeveloper }) => {
       <PrinterSettingsModal
         isOpen={printerModalOpen}
         onClose={() => setPrinterModalOpen(false)}
+      />
+
+      {/* Modal Pengaturan QRIS Toko (Hitam Putih Minimalis) */}
+      <QrisSettingsModal
+        isOpen={qrisModalOpen}
+        onClose={() => setQrisModalOpen(false)}
       />
 
       {/* Modal Backup & Pemulihan Toko */}

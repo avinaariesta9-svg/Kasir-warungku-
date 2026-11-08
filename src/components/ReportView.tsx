@@ -528,6 +528,7 @@ export const ReportView: React.FC = () => {
         <ReceiptView
           isOpen={isReceiptOpen}
           transaction={selectedTx}
+          initialIsReprint={true}
           onClose={() => {
             setIsReceiptOpen(false);
             setSelectedTx(null);
